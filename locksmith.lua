@@ -259,6 +259,49 @@ M.reactions = {
         end,
     },
 
+    -- Need lockpick
+    {
+        match = {'You must be holding', "You don't see any"},
+        action = function() send('get my lockpick') end,
+    },
+
+    -- Empty hands needed (for open/empty)
+    {
+        match = 'Your hands must be empty',
+        action = function()
+            local cont = state.get('cont')
+            local pending
+            if state.get('open') and not state.get('is_opened') then
+                pending = 'open ' .. cont
+            elseif state.get('empty') and not state.get('is_emptied') then
+                pending = 'empty ' .. cont .. ' into ' .. state.get('empty')
+            end
+            state.set('pending_action', pending)
+            send('put lockpick in ' .. state.get('stow'))
+        end,
+    },
+
+    -- Take: distinguish lockpick recovery from container pickup
+    {
+        match = {'You take', 'You are already carrying * lockpick'},
+        action = function(text)
+            if text:match('lockpick') then
+                -- Lockpick recovered
+                local pending = state.get('pending_action')
+                if pending then
+                    state.set('pending_action', nil)
+                    send(pending)
+                    return
+                end
+                send_action()
+                return
+            end
+            -- Container picked up
+            state.set('holding', true)
+            send_action()
+        end,
+    },
+
     -- Unbusy: main dispatch
     {
         match = strings.unbusy,
