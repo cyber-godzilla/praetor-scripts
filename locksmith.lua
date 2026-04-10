@@ -302,6 +302,76 @@ M.reactions = {
         end,
     },
 
+    -- Opened container
+    {
+        match = 'You open',
+        action = function()
+            state.set('is_opened', true)
+            if state.get('empty') then
+                send('empty ' .. state.get('cont') .. ' into ' .. state.get('empty'))
+            else
+                -- Get lockpick back (may already have it; handled by "already carrying")
+                send('get my lockpick')
+            end
+        end,
+    },
+
+    -- Emptied container
+    {
+        match = 'You empty',
+        action = function()
+            state.set('is_emptied', true)
+            send('get my lockpick')
+        end,
+    },
+
+    -- Put: distinguish lockpick stow from container disposition
+    {
+        match = 'You put',
+        action = function(text)
+            if text:match('lockpick') then
+                -- Lockpick was stowed, perform pending action
+                local pending = state.get('pending_action')
+                if pending then
+                    state.set('pending_action', nil)
+                    send(pending)
+                end
+            else
+                -- Container was disposed or put back in source
+                state.set('holding', false)
+                send_action()
+            end
+        end,
+    },
+
+    -- Drop or toss disposition complete
+    {
+        match = {'You drop', 'You toss'},
+        action = function()
+            state.set('holding', false)
+            send_action()
+        end,
+    },
+
+    -- End of containers
+    {
+        match = {"You don't see", "There aren't that many"},
+        action = function()
+            if state.get('unjam_first') and state.get('phase') == 'unjam' then
+                -- Unjam pass done, start unlock pass
+                state.set('phase', 'unlock')
+                reset_container_state()
+                state.set('holding', false)
+                if state.get('in_place') then
+                    state.set('container_index', 1)
+                end
+                send_action()
+                return
+            end
+            finish()
+        end,
+    },
+
     -- Unbusy: main dispatch
     {
         match = strings.unbusy,
