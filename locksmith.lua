@@ -198,6 +198,74 @@ function M.on_start(args)
     send_action()
 end
 
-M.reactions = {}
+M.reactions = {
+    -- Difficulty check: skip hard unjams
+    {
+        match = '[Success:',
+        action = function(text)
+            local success = tonumber(text:match('%[Success:%s*(%d+)'))
+            if not success then return end
+            local unjamming = state.get('is_jammed') or
+                (state.get('unjam_first') and state.get('phase') == 'unjam')
+            if unjamming and success > state.get('skip') then
+                state.set('skipped', true)
+            end
+        end,
+    },
+
+    -- Unjam success
+    {
+        match = 'You feel an obstruction release',
+        action = function()
+            state.set('is_jammed', false)
+            if state.get('unjam_first') and state.get('phase') == 'unjam' then
+                state.set('unjam_done', true)
+            end
+        end,
+    },
+
+    -- Unlock success
+    {
+        match = 'You hear a click as the tumbler mechanism releases',
+        action = function()
+            state.set('is_locked', false)
+        end,
+    },
+
+    -- Discovered jam during unlock attempt
+    {
+        match = 'This lock is jammed',
+        action = function()
+            state.set('is_jammed', true)
+            send(build_work_cmd('unjam'))
+        end,
+    },
+
+    -- Already unjammed or already unlocked
+    {
+        match = 'It is already',
+        action = function()
+            if state.get('unjam_first') and state.get('phase') == 'unjam' then
+                -- Not jammed, advance to next in unjam phase
+                advance()
+                return
+            end
+            -- Could be "already unjammed" or "already unlocked"
+            if state.get('is_jammed') then
+                state.set('is_jammed', false)
+            else
+                state.set('is_locked', false)
+            end
+        end,
+    },
+
+    -- Unbusy: main dispatch
+    {
+        match = strings.unbusy,
+        action = function()
+            send_action()
+        end,
+    },
+}
 
 return M
