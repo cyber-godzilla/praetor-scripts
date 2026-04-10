@@ -38,7 +38,7 @@ local function parse_args(args)
         skip = 60,
     }
     for _, arg in ipairs(args) do
-        local key, value = arg:match('^(.+):(.+)$')
+        local key, value = arg:match('^(.-):(.+)$')
         if key == 'cont' then config.cont = value
         elseif key == 'from' then config.from = value
         elseif key == 'to' then config.to = value
@@ -353,10 +353,11 @@ M.reactions = {
         end,
     },
 
-    -- End of containers
+    -- End of containers (text check avoids conflict with lockpick "You don't see any")
     {
         match = {"You don't see", "There aren't that many"},
-        action = function()
+        action = function(text)
+            if text:match('lockpick') then return end
             if state.get('unjam_first') and state.get('phase') == 'unjam' then
                 -- Unjam pass done, start unlock pass
                 state.set('phase', 'unlock')
