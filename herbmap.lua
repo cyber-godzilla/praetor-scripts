@@ -23,6 +23,28 @@ local function parse_args(args)
     return config
 end
 
+local function start_gathering_or_move()
+    local gather = state.get('gather')
+    local key = state.get('current_key')
+    local map = state.get('herb_map')
+
+    if gather ~= 'none' then
+        local herbs = herbmap.get_herbs_to_gather(map, key, gather)
+        if #herbs > 0 then
+            state.set('phase', 'gathering')
+            state.set('gather_list', herbs)
+            state.set('gather_index', 1)
+            send('stow ' .. state.get('stow'))
+            return
+        end
+    end
+
+    state.set('phase', 'moving')
+    metrics.inc('rooms')
+    local dir = state.get('dir')
+    send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
+end
+
 function M.on_start(args)
     local config = parse_args(args)
 
@@ -67,6 +89,66 @@ function M.on_start(args)
     end
 end
 
-M.reactions = {}
+M.reactions = {
+    -- Herb found
+    {
+        match = herbmap.success_pattern,
+        action = function(text)
+            if state.get('phase') ~= 'surveying' then return end
+            local herb = text:match('come across (.+)%.$')
+            if not herb then return end
+            local key = state.get('current_key')
+            local map = state.get('herb_map')
+            herbmap.record_herb(map, key, herb)
+            state.set('herb_map', map)
+            metrics.inc('attempts')
+            if herbmap.is_complete(map, key) then
+                start_gathering_or_move()
+            end
+        end,
+    },
+
+    -- Searched but found nothing (miss)
+    {
+        match = herbmap.miss_patterns,
+        condition = function() return #herbmap.miss_patterns > 0 end,
+        action = function()
+            if state.get('phase') ~= 'surveying' then return end
+            local key = state.get('current_key')
+            local map = state.get('herb_map')
+            herbmap.record_miss(map, key)
+            state.set('herb_map', map)
+            metrics.inc('attempts')
+            if herbmap.is_complete(map, key) then
+                start_gathering_or_move()
+            end
+        end,
+    },
+
+    -- Room doesn't support herbs, skip permanently
+    {
+        match = herbmap.no_herbs_patterns,
+        condition = function() return #herbmap.no_herbs_patterns > 0 end,
+        action = function()
+            if state.get('phase') ~= 'surveying' then return end
+            local key = state.get('current_key')
+            local map = state.get('herb_map')
+            herbmap.mark_skip(map, key)
+            state.set('herb_map', map)
+            start_gathering_or_move()
+        end,
+    },
+
+    -- Unbusy: fire next find herbs during surveying
+    {
+        match = strings.unbusy,
+        action = function()
+            local phase = state.get('phase')
+            if phase == 'surveying' then
+                send('find herbs')
+            end
+        end,
+    },
+}
 
 return M
