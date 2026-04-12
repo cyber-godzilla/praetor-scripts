@@ -64,7 +64,7 @@ end
 
 function H.get_herbs_to_gather(map, key, gather_mode)
     local room = map[key]
-    if not room or gather_mode == 'none' then return {} end
+    if not room or gather_mode == 'none' or room.attempts == 0 then return {} end
     local herbs = {}
     for name, count in pairs(room.herbs) do
         if gather_mode == 'all' then

@@ -1,3 +1,15 @@
+--[[
+Survey rooms for herb spawn rates, persist per-room data, optionally gather.
+/mode herbmap <room-key> dir:<direction>
+/mode herbmap boulder dir:n gather:rare stow:my backpack
+/mode herbmap boulder dir:nw gather:all wagon:true
+
+Options:
+  dir:<direction>        -- travel direction between rooms (required)
+  gather:none|rare|all   -- which herbs to pick up after surveying (default: none)
+  stow:<container>       -- where to put gathered herbs (default: my backpack)
+  wagon:true|false       -- use pull wagon instead of go (default: false)
+]]
 local strings = require('lib_strings')
 local herbmap = require('lib_herbmap')
 
@@ -23,6 +35,11 @@ local function parse_args(args)
     return config
 end
 
+local function move_cmd()
+    local dir = state.get('dir')
+    return state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir)
+end
+
 local function start_gathering_or_move()
     local gather = state.get('gather')
     local key = state.get('current_key')
@@ -41,8 +58,7 @@ local function start_gathering_or_move()
 
     state.set('phase', 'moving')
     metrics.inc('rooms')
-    local dir = state.get('dir')
-    send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
+    send(move_cmd())
 end
 
 local function gather_next_herb()
@@ -71,6 +87,11 @@ function M.on_start(args)
         set_mode('disable')
         return
     end
+    if config.gather ~= 'none' and config.gather ~= 'all' and config.gather ~= 'rare' then
+        log('herbmap: invalid gather mode "' .. config.gather .. '", must be none|all|rare')
+        set_mode('disable')
+        return
+    end
 
     state.set('current_key', config.room_key)
     state.set('dir', config.dir)
@@ -96,7 +117,7 @@ function M.on_start(args)
 
     if herbmap.is_complete(map, key) then
         state.set('phase', 'moving')
-        send(config.wagon and ('pull wagon ' .. config.dir) or ('go ' .. config.dir))
+        send(move_cmd())
     else
         send('find herbs')
     end
@@ -200,8 +221,7 @@ M.reactions = {
                     -- Done putting away, move to next room
                     state.set('phase', 'moving')
                     metrics.inc('rooms')
-                    local dir = state.get('dir')
-                    send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
+                    send(move_cmd())
                 end
             end
         end,
@@ -224,7 +244,7 @@ M.reactions = {
             if herbmap.is_complete(map, new_key) then
                 -- Already mapped, keep moving
                 state.set('phase', 'moving')
-                send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
+                send(move_cmd())
             else
                 send('find herbs')
             end
