@@ -45,6 +45,19 @@ local function start_gathering_or_move()
     send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
 end
 
+local function gather_next_herb()
+    local herbs = state.get('gather_list')
+    local idx = state.get('gather_index')
+    if idx > #herbs then
+        -- All herbs gathered, put everything away
+        state.set('phase', 'putting_away')
+        state.set('put_count', 0)
+        send('put . in ' .. state.get('stow'))
+        return
+    end
+    send('get ' .. herbs[idx] .. ' from here')
+end
+
 function M.on_start(args)
     local config = parse_args(args)
 
@@ -146,6 +159,50 @@ M.reactions = {
             local phase = state.get('phase')
             if phase == 'surveying' then
                 send('find herbs')
+            end
+        end,
+    },
+
+    -- Gathering: picked up an herb, try for more of the same
+    {
+        match = 'You take',
+        action = function()
+            if state.get('phase') ~= 'gathering' then return end
+            local herbs = state.get('gather_list')
+            local idx = state.get('gather_index')
+            send('get ' .. herbs[idx] .. ' from here')
+        end,
+    },
+
+    -- Gathering: no more of this herb, move to next
+    {
+        match = 'You are already',
+        action = function()
+            if state.get('phase') ~= 'gathering' then return end
+            state.set('gather_index', state.get('gather_index') + 1)
+            gather_next_herb()
+        end,
+    },
+
+    -- Gathering: stow command completed or putting away herbs
+    {
+        match = 'You put',
+        action = function()
+            local phase = state.get('phase')
+            if phase == 'gathering' then
+                gather_next_herb()
+            elseif phase == 'putting_away' then
+                local count = state.get('put_count') + 1
+                state.set('put_count', count)
+                if count < 2 then
+                    send('put . in ' .. state.get('stow'))
+                else
+                    -- Done putting away, move to next room
+                    state.set('phase', 'moving')
+                    metrics.inc('rooms')
+                    local dir = state.get('dir')
+                    send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
+                end
             end
         end,
     },
