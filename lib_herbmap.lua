@@ -16,4 +16,17 @@ H.edge_patterns = {
     "The water is too deep",
 }
 
+function H.advance_key(key, direction)
+    local base, last_dir, last_count = key:match('^(.+)-(%a+)-(%d+)$')
+    if not base then
+        return key .. '-' .. direction .. '-1'
+    end
+    last_count = tonumber(last_count)
+    if last_dir == direction then
+        return base .. '-' .. direction .. '-' .. (last_count + 1)
+    else
+        return key .. '-' .. direction .. '-1'
+    end
+end
+
 return H
