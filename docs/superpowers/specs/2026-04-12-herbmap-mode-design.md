@@ -61,7 +61,10 @@ boulder-nw-1-n-1
 
 ```lua
 success_pattern = 'You search the area carefully and come across *.'
-no_herbs_patterns = {}    -- user-populated: patterns indicating room has no herbs
+miss_patterns = {}        -- user-populated: searched but found nothing
+no_herbs_patterns = {     -- room doesn't support herbs at all
+    'You search the area carefully and come to the conclusion there are no usable herbs here.',
+}
 edge_patterns = {         -- user-extensible
     "You can't go that direction",
     "The water is too deep",
