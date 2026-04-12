@@ -206,6 +206,40 @@ M.reactions = {
             end
         end,
     },
+
+    -- Arrived in new room
+    {
+        match = 'You arrive at',
+        action = function()
+            if state.get('phase') ~= 'moving' then return end
+            local key = state.get('current_key')
+            local dir = state.get('dir')
+            local new_key = herbmap.advance_key(key, dir)
+            state.set('current_key', new_key)
+            state.set('phase', 'surveying')
+
+            local map = state.get('herb_map')
+            herbmap.init_room(map, new_key)
+
+            if herbmap.is_complete(map, new_key) then
+                -- Already mapped, keep moving
+                state.set('phase', 'moving')
+                send(state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir))
+            else
+                send('find herbs')
+            end
+        end,
+    },
+
+    -- Edge of map
+    {
+        match = herbmap.edge_patterns,
+        action = function(text)
+            if state.get('phase') ~= 'moving' then return end
+            notify('Herbmap', 'Reached edge: ' .. text)
+            set_mode('disable')
+        end,
+    },
 }
 
 return M
