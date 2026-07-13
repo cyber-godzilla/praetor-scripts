@@ -47,7 +47,7 @@ M.reactions = {
     },
     -- Step 4: success -> walk north
     {
-        match = '[Success:',
+        match = strings.success,
         action = function()
             if state.get('step') == 4 then
                 state.set('step', 5)

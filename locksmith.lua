@@ -1,21 +1,18 @@
 --[[
-Batch-process locked/jammed containers using locksmithing skills.
-All options use key:value format and have defaults, so bare /mode locksmith works.
+Unjams and unlocks containers in bulk. All options use key:value format with defaults.
+/mode locksmith
+/mode locksmith cont:chest from:wagon to:n open:true
+/mode locksmith skip:75 unjam_first:true empty:sack to:wagon
 
 Options:
   cont:chest|coffer|trunk    -- container types (pipe-delimited, game resolves)
   from:here                  -- source: here (ground) or container name
-  to:here                    -- disposition: here, direction, or container name
+  to:here                    -- where finished containers go (here=drop, n/s/e/w=toss, other=put in)
   stow:my neckpouch|sack|backpack|satchel -- where to stow lockpick when hands must be empty
   open:false                 -- open containers after unlocking
   empty:<target>             -- empty contents into target (implies open)
-  unjam_first:false          -- two-pass: unjam all, then unlock all
+  unjam_first:false          -- two-pass: unjam all first, then unlock all
   skip:60                    -- skip unjams where Success > this value
-
-Examples:
-  /mode locksmith
-  /mode locksmith cont:chest from:wagon to:n open:true
-  /mode locksmith skip:75 unjam_first:true empty:sack to:wagon
 ]]
 local strings = require('lib_strings')
 
@@ -201,7 +198,7 @@ end
 M.reactions = {
     -- Difficulty check: skip hard unjams
     {
-        match = '[Success:',
+        match = strings.success,
         action = function(text)
             local success = tonumber(text:match('%[Success:%s*(%d+)'))
             if not success then return end

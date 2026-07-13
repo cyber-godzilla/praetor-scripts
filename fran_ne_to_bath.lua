@@ -2,6 +2,8 @@
 From the northern half of Franlius, walks back to the Franlius baths.
 Then transitions to idle, with instructions to go back to Northeast Franlius after.
 ]]
+local strings = require('lib_strings')
+
 local M = {}
 
 function M.on_start(args)
@@ -26,7 +28,7 @@ M.reactions = {
     },
     -- Step 2: success -> walk to bath
     {
-        match = '[Success:',
+        match = strings.success,
         action = function()
             if state.get('step') == 2 then
                 state.set('step', 3)

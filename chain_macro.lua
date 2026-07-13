@@ -42,12 +42,17 @@ function M.on_start(args)
     metrics.track('actions', 'Actions')
 
     log('Chain macro mode started')
+    combat.start_watchdog(chain_attack)
+end
+
+function M.on_stop()
+    combat.stop_watchdog()
 end
 
 M.reactions = {
     -- Success roll: dispatch kill/KO/rotate via combat handler
     {
-        match = '[Success:',
+        match = strings.success,
         action = function(text)
             if combat.handle_success(text, chain_attack) then return end
             if state.get('winding_up') then

@@ -36,12 +36,18 @@ function M.on_start(args)
         state.set('moving', true)
         send(args[1])
     end
+
+    combat.start_watchdog()
+end
+
+function M.on_stop()
+    combat.stop_watchdog()
 end
 
 M.reactions = {
     -- Success roll: dispatch kill/KO/rotate via combat handler
     {
-        match = '[Success:',
+        match = strings.success,
         action = function(text)
             if combat.handle_success(text) then return end
             metrics.inc('actions')
