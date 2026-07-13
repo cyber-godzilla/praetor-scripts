@@ -1,5 +1,7 @@
 local S = {}
 
+S.success = '[Success:'
+
 S.unbusy = {
     'You are no longer busy.', 'You are no longer stunned.', 'You wield',
     'You grab onto', 'You are already wielding', 'You successfully train to rank',

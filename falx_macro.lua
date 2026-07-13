@@ -57,6 +57,16 @@ function M.on_start(args)
     metrics.track('actions', 'Actions')
 
     log('Falx macro mode started')
+    -- Watchdog clears stuck submode before retrying; otherwise falx_attack
+    -- would no-op when stuck in stunSent/dragSent/ev state.
+    combat.start_watchdog(function()
+        if state.get('falx_submode') then exit_submode() end
+        falx_attack()
+    end)
+end
+
+function M.on_stop()
+    combat.stop_watchdog()
 end
 
 M.reactions = {
@@ -113,7 +123,7 @@ M.reactions = {
     -- Success roll: dispatch kill/KO/rotate via combat handler.
     -- Also handles 'falls unconscious' within [Success:] text.
     {
-        match = '[Success:',
+        match = strings.success,
         action = function(text)
             if combat.handle_success(text, falx_attack) then
                 if state.get('falx_submode') then exit_submode() end

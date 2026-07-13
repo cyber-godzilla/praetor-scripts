@@ -80,6 +80,35 @@ function C.attack()
     state.set('last_command_time', time.now())
 end
 
+-- Watchdog: kick attack_fn if no command sent in stall_ms.
+-- Recovers from stalls where no [Success:] or unbusy arrives
+-- (e.g. 'You are already engaging' followed by silence).
+function C.start_watchdog(attack_fn, stall_ms, check_ms)
+    attack_fn = attack_fn or C.attack
+    stall_ms = stall_ms or 8000
+    check_ms = check_ms or 3000
+    state.set('last_command_time', time.now())
+    local id = set_interval(function()
+        local last = state.get('last_command_time') or 0
+        if time.since(last) > stall_ms then
+            log('combat watchdog: stall detected, kicking attack')
+            attack_fn()
+            -- Reset regardless so we wait a full stall_ms before firing again,
+            -- even if attack_fn short-circuited without sending.
+            state.set('last_command_time', time.now())
+        end
+    end, check_ms)
+    state.set('watchdog_id', id)
+end
+
+function C.stop_watchdog()
+    local id = state.get('watchdog_id')
+    if id then
+        clear_timer(id)
+        state.set('watchdog_id', nil)
+    end
+end
+
 function C.on_kill()
     metrics.inc('kills')
     state.set('target_ko', false)
