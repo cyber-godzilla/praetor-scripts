@@ -18,8 +18,7 @@ M.reactions = {
     },
     -- Done for today
     {
-        -- This string may need updated
-        match = "I've taught you all I can for today",
+        match = "I've taught you all I can for the day",
         action = function()
             set_mode('disable')
             notify('Completed', 'Language processing')
