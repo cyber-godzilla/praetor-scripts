@@ -40,18 +40,33 @@ local function move_cmd()
     return state.get('wagon') and ('pull wagon ' .. dir) or ('go ' .. dir)
 end
 
+local function reset_herb_metrics()
+    local tracked = state.get('tracked_herbs') or {}
+    for herb_key in pairs(tracked) do
+        metrics.set(herb_key, 0)
+    end
+    state.set('tracked_herbs', {})
+end
+
+local gather_next_herb
+
 local function start_gathering_or_move()
     local gather = state.get('gather')
     local key = state.get('current_key')
     local map = state.get('herb_map')
 
     if gather ~= 'none' then
-        local herbs = herbmap.get_herbs_to_gather(map, key, gather)
+        local raw = herbmap.get_herbs_to_gather(map, key, gather)
+        -- Resolve to get keywords, skip unmapped herbs
+        local herbs = {}
+        for _, name in ipairs(raw) do
+            local kw = herbmap.herb_keywords[name]
+            if kw then herbs[#herbs + 1] = kw end
+        end
         if #herbs > 0 then
             state.set('phase', 'gathering')
             state.set('gather_list', herbs)
             state.set('gather_index', 1)
-            send('stow ' .. state.get('stow'))
             return
         end
     end
@@ -61,7 +76,7 @@ local function start_gathering_or_move()
     send(move_cmd())
 end
 
-local function gather_next_herb()
+gather_next_herb = function()
     local herbs = state.get('gather_list')
     local idx = state.get('gather_index')
     if idx > #herbs then
@@ -109,6 +124,7 @@ function M.on_start(args)
     state.display('phase', 'Phase')
 
     metrics.track('attempts', 'Attempts')
+    metrics.track('finds', 'Finds')
     metrics.track('rooms', 'Rooms')
 
     -- Start surveying current room
@@ -117,7 +133,7 @@ function M.on_start(args)
 
     if herbmap.is_complete(map, key) then
         state.set('phase', 'moving')
-        send(move_cmd())
+        send(move_cmd(), 3500)
     else
         send('find herbs')
     end
@@ -136,6 +152,16 @@ M.reactions = {
             herbmap.record_herb(map, key, herb)
             state.set('herb_map', map)
             metrics.inc('attempts')
+            metrics.inc('finds')
+            -- Update per-herb metric for current room
+            local herb_key = 'herb:' .. herb
+            local tracked = state.get('tracked_herbs') or {}
+            if not tracked[herb_key] then
+                metrics.track(herb_key, herb)
+                tracked[herb_key] = true
+                state.set('tracked_herbs', tracked)
+            end
+            metrics.inc(herb_key)
             if herbmap.is_complete(map, key) then
                 start_gathering_or_move()
             end
@@ -159,10 +185,36 @@ M.reactions = {
         end,
     },
 
-    -- Room doesn't support herbs, skip permanently
+    -- No usable herbs found — record and skip after threshold
     {
-        match = herbmap.no_herbs_patterns,
-        condition = function() return #herbmap.no_herbs_patterns > 0 end,
+        match = herbmap.no_usable_patterns,
+        condition = function() return #herbmap.no_usable_patterns > 0 end,
+        action = function()
+            if state.get('phase') ~= 'surveying' then return end
+            local key = state.get('current_key')
+            local map = state.get('herb_map')
+            herbmap.record_herb(map, key, 'no_usable')
+            state.set('herb_map', map)
+            metrics.inc('attempts')
+            local room = herbmap.get_room(map, key)
+            local only_no_usable = true
+            for name in pairs(room.herbs) do
+                if name ~= 'no_usable' then only_no_usable = false break end
+            end
+            if only_no_usable and (room.herbs['no_usable'] or 0) >= herbmap.NO_USABLE_THRESHOLD then
+                herbmap.mark_skip(map, key)
+                state.set('herb_map', map)
+                start_gathering_or_move()
+            elseif herbmap.is_complete(map, key) then
+                start_gathering_or_move()
+            end
+        end,
+    },
+
+    -- Cannot forage here — skip immediately
+    {
+        match = herbmap.no_forage_patterns,
+        condition = function() return #herbmap.no_forage_patterns > 0 end,
         action = function()
             if state.get('phase') ~= 'surveying' then return end
             local key = state.get('current_key')
@@ -173,13 +225,36 @@ M.reactions = {
         end,
     },
 
-    -- Unbusy: fire next find herbs during surveying
+    -- Unbusy: drive surveying and moving phases
     {
         match = strings.unbusy,
         action = function()
             local phase = state.get('phase')
             if phase == 'surveying' then
                 send('find herbs')
+            elseif phase == 'moving' then
+                send(move_cmd())
+            elseif phase == 'gathering' then
+                gather_next_herb()
+            end
+        end,
+    },
+
+    -- Busy: retry last action after 1 second
+    {
+        match = 'You are in the middle of something',
+        action = function()
+            local phase = state.get('phase')
+            if phase == 'surveying' then
+                send('find herbs', 1000)
+            elseif phase == 'moving' then
+                send(move_cmd(), 1000)
+            elseif phase == 'gathering' then
+                local herbs = state.get('gather_list')
+                local idx = state.get('gather_index')
+                send('get ' .. herbs[idx] .. ' from here', 1000)
+            elseif phase == 'putting_away' then
+                send('put . in ' .. state.get('stow'), 1000)
             end
         end,
     },
@@ -197,7 +272,7 @@ M.reactions = {
 
     -- Gathering: no more of this herb, move to next
     {
-        match = 'You are already',
+        match = {'You are already', 'You are unable to move'},
         action = function()
             if state.get('phase') ~= 'gathering' then return end
             state.set('gather_index', state.get('gather_index') + 1)
@@ -205,14 +280,12 @@ M.reactions = {
         end,
     },
 
-    -- Gathering: stow command completed or putting away herbs
+    -- Putting away gathered herbs
     {
-        match = 'You put',
+        match = {'You put', 'You must be carrying something to put it somewhere', "You can't"},
         action = function()
             local phase = state.get('phase')
-            if phase == 'gathering' then
-                gather_next_herb()
-            elseif phase == 'putting_away' then
+            if phase == 'putting_away' then
                 local count = state.get('put_count') + 1
                 state.set('put_count', count)
                 if count < 2 then
@@ -229,7 +302,7 @@ M.reactions = {
 
     -- Arrived in new room
     {
-        match = 'You arrive at',
+        match = {'You arrive at', 'Your immediate surroundings are obscured by darkness'},
         action = function()
             if state.get('phase') ~= 'moving' then return end
             local key = state.get('current_key')
@@ -237,6 +310,7 @@ M.reactions = {
             local new_key = herbmap.advance_key(key, dir)
             state.set('current_key', new_key)
             state.set('phase', 'surveying')
+            reset_herb_metrics()
 
             local map = state.get('herb_map')
             herbmap.init_room(map, new_key)
@@ -244,9 +318,9 @@ M.reactions = {
             if herbmap.is_complete(map, new_key) then
                 -- Already mapped, keep moving
                 state.set('phase', 'moving')
-                send(move_cmd())
+                send(move_cmd(), 3500)
             else
-                send('find herbs')
+                send('find herbs', 3500)
             end
         end,
     },
