@@ -105,11 +105,11 @@ mode, so a leg's tail can be overridden at the command line
 (`/mode <leg> after:disable`) or chained onward into a `wagon` sell that
 carries its own `after:`.
 
-## Mode Metadata (`usage` / `desc` / `chains`)
+## Mode Metadata (`usage` / `desc` / `chains` / `hidden`)
 
 Every mode declares what it is and what arguments it takes, so the client can
 show that information as you type instead of making you open the file. Praetor
-reads these three optional fields off the mode table when it loads a script:
+reads these optional fields off the mode table when it loads a script:
 
 ```lua
 local M = {}
@@ -117,6 +117,7 @@ local M = {}
 M.usage = '<item|alias> [corpse#]'
 M.desc = 'Take a pipe-delimited item list from every corpse in the room'
 M.chains = true
+M.hidden = false   -- true keeps it out of the hint; it still runs
 ```
 
 Typing `/mode loot ` in the client then surfaces the signature and the
@@ -146,6 +147,28 @@ displayed signature, so declaring it on a mode that ignores the token advertises
 something that will not happen. Combat macros never set it (they have no
 completion point), and a route leg whose completion callback hardcodes its own
 `set_mode` must leave it unset even though `lib_route` parses the token.
+
+**`hidden`** — set to `true` to keep the mode out of the command hint. For
+helpers that are real modes but noise while typing: an internal route leg, or a
+mode that exists to be chained into rather than started by hand. It hides the
+mode from the hint *only* — the mode stays loaded, the mode picker still lists
+it with its description, and `/mode <name>` still runs it normally. A hidden
+mode is invisible to the hint even when its name is typed in full, at which
+point the hint shows its generic `/mode` signature exactly as it does for a name
+that does not exist, so a hidden mode cannot be told apart from an absent one.
+
+Note that clearing `usage` and `desc` does **not** hide a mode; it still appears
+in the hint as a bare name with nothing beside it. Only `hidden` removes it.
+The worked example is `private/farm_rps.lua` — a keepalive mode kept out of the
+hint because it is started deliberately and rarely, never browsed for. (That
+directory is gitignored, so the file itself is local-only; the declaration is
+all there is to it:)
+
+```lua
+M.usage = '[minutes]'
+M.desc = 'Send randomized keepalives for a set duration (default 60 minutes)'
+M.hidden = true
+```
 
 Route legs have no `M` table of their own, so they pass the same metadata as an
 optional third argument to `route.mode`:

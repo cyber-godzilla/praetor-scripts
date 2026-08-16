@@ -16,6 +16,7 @@ local M = {}
 M.usage = '<item> [count]'   -- args only, no mode name; omit when the mode takes none
 M.desc = 'One line, sentence case, no trailing period'
 M.chains = true              -- only when after: is genuinely honored (see Mode Metadata)
+M.hidden = false             -- true keeps it out of the command hint; it still runs
 
 function M.on_start(args)
     -- Called when mode is activated via /mode <name> [args]
@@ -90,13 +91,14 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common 
 - **lib_after.lua** — Mode chaining: `after.parse(args)` strips the `after:<mode>` token in `on_start`, `after.finish([fallback])` chains onward at completion instead of `set_mode('disable')`
 - **lib_route.lua** — Wagon-route legs: `route.mode(steps, on_done)` builds a whole mode from an ordered list of `pull wagon ...` / `open ...` commands, handling the differing advance timing of each (see Route Legs)
 
-## Mode Metadata (`usage` / `desc` / `chains`)
+## Mode Metadata (`usage` / `desc` / `chains` / `hidden`)
 
-Every mode declares these three optional fields directly after `local M = {}`, in that order. Praetor reads them at load time to drive the `/mode` command hint and `/list`; see README for the full notation table.
+Every mode declares these optional fields directly after `local M = {}`, in that order. Praetor reads them at load time to drive the `/mode` command hint and `/list`; see README for the full notation table.
 
 - **`usage`** — arguments only, no mode name. `<required>`, `[optional]`, `[flagword]`, `a|b|c`, `key:<value>`, `[repeatable...]`. Omit the field when the mode takes no arguments.
 - **`desc`** — one line, sentence case, no trailing period. What it does, not how.
 - **`chains`** — `true` only when `on_start` calls `after.parse(args)` *and* a completion point calls `after.finish()`. The client appends `[after:<mode>]` when set, so it must not be declared on a mode that parses the token but ignores it (combat macros have no completion point; a route leg whose callback hardcodes `set_mode` ignores it).
+- **`hidden`** — `true` keeps the mode out of the command hint, for helpers that are real modes but noise while typing. Hint only: the mode stays loaded, the picker still lists it, and `/mode <name>` still runs it. Clearing `usage`/`desc` does *not* hide a mode — it just leaves a bare name in the hint. See `private/farm_rps.lua`.
 
 Route legs pass the same table as `route.mode`'s optional third argument instead.
 
