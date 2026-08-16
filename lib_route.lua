@@ -55,11 +55,13 @@ end
 
 -- Build a route mode from an ordered command list and a completion callback.
 -- Optional `meta` carries the mode metadata the client reads for its command
--- hint: { usage = '<args>', desc = 'one line', chains = true }. Route legs take
--- no positional args, so usage is normally omitted. Set chains only when
--- on_done actually honors after:<mode> (i.e. it calls after.finish) — a leg
--- whose on_done hardcodes its own set_mode ignores after:, so it must not
--- advertise it.
+-- hint: { usage = '<args>', desc = 'one line', chains = true, hidden = true }.
+-- Route legs take no positional args, so usage is normally omitted. Set chains
+-- only when on_done actually honors after:<mode> (i.e. it calls after.finish) —
+-- a leg whose on_done hardcodes its own set_mode ignores after:, so it must not
+-- advertise it. Set hidden on the interior legs of a circuit: they are started
+-- by the leg before them, not browsed for, so offering them in the hint is
+-- noise (they stay loaded and /mode <leg> still resumes a broken run).
 function R.mode(steps, on_done, meta)
     local M = {}
 
@@ -67,6 +69,7 @@ function R.mode(steps, on_done, meta)
         M.usage = meta.usage
         M.desc = meta.desc
         M.chains = meta.chains
+        M.hidden = meta.hidden
     end
 
     local function send_step(i)

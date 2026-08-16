@@ -180,9 +180,15 @@ return route.mode(
     {
         desc = 'Pull the wagon from the gate to the intersection',
         chains = true,
+        hidden = true,
     }
 )
 ```
+
+Interior legs are the main users of `hidden`. A circuit's middle legs are
+started by the leg before them rather than browsed for, so offering each one in
+the hint is noise — but they stay loaded, so `/mode <leg>` still resumes a run
+that broke partway through, which is the whole reason a haul is split into legs.
 
 All three fields are optional and purely descriptive — nothing validates
 arguments against `usage`, and a mode that declares none behaves exactly as it
