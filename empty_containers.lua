@@ -8,9 +8,12 @@ Defaults:
 /mode empty_containers pouch wagon wagon
 etc
 ]]
+local after = require('lib_after')
+
 local M = {}
 
 function M.on_start(args)
+    args = after.parse(args)
     local item = args[1] or 'sack'
     local source = args[2] or 'wagon'
     local destination = args[3] or 'wagon'
@@ -47,8 +50,8 @@ M.reactions = {
     {
         match = "You don't see",
         action = function()
-            set_mode('disable')
             notify('Completed', 'emptyContainers finished')
+            after.finish()
         end,
     },
 }

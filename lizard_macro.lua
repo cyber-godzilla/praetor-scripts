@@ -6,12 +6,14 @@ Accepts one argument (direction), which is the direction it automatically tries 
 local strings = require('lib_strings')
 local lizard_strings = require('lib_lizard_macro')
 local combat = require('lib_combat')
+local after = require('lib_after')
 
 local M = {}
 
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6'}
 
 function M.on_start(args)
+    args = after.parse(args)
     state.set('do_kill', true)
     state.set('approached', true)
     state.set('target_ko', false)
@@ -130,7 +132,7 @@ M.reactions = {
             local fatigue = status.fatigue
             if fatigue <= 0 then
                 notify('Lizard Macro', 'Out of fatigue')
-                set_mode('idle')
+                after.finish('idle')
                 return
             end
             if fatigue <= 10 then

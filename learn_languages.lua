@@ -2,8 +2,13 @@
 Language lessons
 ]]
 local strings = require('lib_learn_languages')
+local after = require('lib_after')
 
 local M = {}
+
+function M.on_start(args)
+    after.parse(args)
+end
 
 M.reactions = {
     -- Woman teacher
@@ -20,8 +25,8 @@ M.reactions = {
     {
         match = "I've taught you all I can for the day",
         action = function()
-            set_mode('disable')
             notify('Completed', 'Language processing')
+            after.finish()
         end,
     },
 }

@@ -13,6 +13,7 @@ Without aliases, arguments are:
 /mode wagon tin telaria sack <-- Sell tin from sack to Telaria
 ]]
 local wagon_tables = require('lib_wagon')
+local after = require('lib_after')
 
 local M = {}
 
@@ -23,17 +24,8 @@ function M.on_start(args)
         return
     end
 
-    -- Check for after:mode_name in any arg position for mode chaining.
-    -- Same pattern used by idle (next_mode),
-    -- but prefixed to avoid ambiguity with item/target/container args.
-    local clean_args = {}
-    for _, a in ipairs(args) do
-        if a:sub(1, 6) == 'after:' then
-            state.set('after_mode', a:sub(7))
-        else
-            clean_args[#clean_args + 1] = a
-        end
-    end
+    -- Strip after:<mode> so it doesn't collide with item/target/container args.
+    local clean_args = after.parse(args)
 
     local container = 'wagon'
     local item, target
@@ -74,13 +66,8 @@ M.reactions = {
     {
         match = "You don't see",
         action = function()
-            local after = state.get('after_mode')
-            if after then
-                set_mode(after)
-            else
-                set_mode('disable')
-                notify('Completed', 'Wagon transfer finished')
-            end
+            notify('Completed', 'Wagon transfer finished')
+            after.finish()
         end,
     },
 }

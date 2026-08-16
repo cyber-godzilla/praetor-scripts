@@ -52,7 +52,7 @@ M.reactions = {
         action = function()
             if state.get('step') == 5 then
                 notify('Completed', 'Route to bath')
-                set_mode('idle', {'fran_to_ne'})
+                set_mode('idle', {'after:fran_to_ne'})
             end
         end,
     },

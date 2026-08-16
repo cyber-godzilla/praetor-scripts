@@ -1,10 +1,12 @@
 --[[
-Checks your fatigue level until back to 100%
+Checks your fatigue level until back to 100%, then chains via after:<mode>.
 ]]
+local after = require('lib_after')
+
 local M = {}
 
 function M.on_start(args)
-    state.set('next_mode', args[1] or 'disable')
+    after.parse(args)
 
     -- Send initial status check
     send('ss')
@@ -19,9 +21,8 @@ M.reactions = {
     {
         match = 'Fatigue: 100%',
         action = function()
-            local next = state.get('next_mode')
-            notify('Idle Complete', 'Fatigue full, switching to ' .. next)
-            set_mode(next)
+            notify('Idle Complete', 'Fatigue full')
+            after.finish()
         end,
     },
 }

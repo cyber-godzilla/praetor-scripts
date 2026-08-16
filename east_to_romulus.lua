@@ -2,6 +2,7 @@
 Pull a wagon from the Monlon east gate to Romulus
 ]]
 local strings = require('lib_strings')
+local after = require('lib_after')
 
 local M = {}
 
@@ -14,6 +15,7 @@ local steps = {
 }
 
 function M.on_start(args)
+    after.parse(args)
     state.set('step_index', 1)
     state.set('waiting_for_stop', false)
     send(steps[1])
@@ -35,7 +37,7 @@ M.reactions = {
             state.set('step_index', idx)
             if idx > #steps then
                 notify('East To Romulus', 'Route complete')
-                set_mode('disable')
+                after.finish()
                 return
             end
             send(steps[idx])

@@ -3,8 +3,13 @@ Simple four-part courses script
 ]]
 local strings = require('lib_strings')
 local courses = require('lib_courses')
+local after = require('lib_after')
 
 local M = {}
+
+function M.on_start(args)
+    after.parse(args)
+end
 
 M.reactions = {
     -- Must stand
@@ -41,8 +46,8 @@ M.reactions = {
     {
         match = courses.course_complete,
         action = function()
-            set_mode('disable')
             notify('Completed', 'Attribute processing')
+            after.finish()
         end,
     },
 }

@@ -7,10 +7,12 @@ Uses the pipe-delimited format, but won't support spaces. For example:
 If you need to include items with a space in the name, like "bronze helm", add a custom shorthand in lib_loot.lua
 ]]
 local loot_tables = require('lib_loot')
+local after = require('lib_after')
 
 local M = {}
 
 function M.on_start(args)
+    args = after.parse(args)
     if not args[1] then
         log('loot mode requires at least one argument (item name)')
         set_mode('disable')
@@ -53,8 +55,8 @@ M.reactions = {
     {
         match = {'anywhere.', "There aren't that many here"},
         action = function()
-            set_mode('disable')
             notify('Completed', 'Loot collection finished')
+            after.finish()
         end,
     },
     -- Item not on this corpse, try next

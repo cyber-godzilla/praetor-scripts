@@ -15,6 +15,7 @@ Options:
   skip:60                    -- skip unjams where Success > this value
 ]]
 local strings = require('lib_strings')
+local after = require('lib_after')
 
 local M = {}
 
@@ -93,7 +94,7 @@ end
 
 local function finish()
     notify('Completed', 'Locksmith finished')
-    set_mode('disable')
+    after.finish()
 end
 
 local send_action, advance
@@ -170,6 +171,7 @@ advance = function()
 end
 
 function M.on_start(args)
+    args = after.parse(args)
     local config = parse_args(args)
 
     -- Store config in state

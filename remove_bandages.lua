@@ -3,6 +3,7 @@ Iterates through removing all of your bandages.
 Mostly useful for Kelestian lessons or after someone drags your battered body to a healer.
 ]]
 local strings = require('lib_strings')
+local after = require('lib_after')
 
 local M = {}
 
@@ -27,6 +28,7 @@ local function parse_parts(text, suffix)
 end
 
 function M.on_start(args)
+    after.parse(args)
     state.set('waiting_for_cond', true)
     state.set('body_parts', {})
     send('cond')
@@ -35,8 +37,8 @@ function M.on_start(args)
     set_timeout(function()
         if state.get('waiting_for_cond') then
             state.set('waiting_for_cond', false)
-            log('No bandages found, disabling')
-            set_mode('disable')
+            log('No bandages found, finishing')
+            after.finish()
         end
     end, 3000)
 end
@@ -81,8 +83,8 @@ M.reactions = {
             if state.get('waiting_for_cond') then return end
             local parts = state.get('body_parts') or {}
             if #parts == 0 then
-                set_mode('disable')
                 notify('Completed', 'Bandage removal finished')
+                after.finish()
                 return
             end
             send('cut bandages from ' .. parts[1])
@@ -98,8 +100,8 @@ M.reactions = {
                 state.set('body_parts', parts)
             end
             if #parts == 0 then
-                set_mode('disable')
                 notify('Completed', 'Bandage removal finished')
+                after.finish()
                 return
             end
             send('cut bandages from ' .. parts[1])

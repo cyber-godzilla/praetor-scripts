@@ -67,7 +67,7 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common 
 - `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, and rotation in one place
 - Attack rotation only happens on player attack rolls (50+ patterns in `strings.attack_roll`), not stun/drag/ev successes
 - Anti-idle recovery: if 5+ seconds since last command, next `[Success:]` triggers an attack
-- Mode chaining via `after:mode_name` arg (wagon mode) or positional `args[1]` (stitch, idle)
+- Combat macros run indefinitely and have no completion point, so they do not chain (except `lizard_macro`, which chains when it runs out of targets)
 - Armor absorption tracked automatically within `handle_success` via `combat.track_absorb(text)`
 
 ## Shared Libraries
@@ -83,6 +83,30 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common 
 - **lib_herbmap.lua** — Herbalism mapping: room key logic, data access, pattern tables, thresholds
 - **lib_loot.lua** — Loot shorthand aliases for corpse types
 - **lib_wagon.lua** — Wagon sell-list aliases for vendors
+- **lib_after.lua** — Mode chaining: `after.parse(args)` strips the `after:<mode>` token in `on_start`, `after.finish([fallback])` chains onward at completion instead of `set_mode('disable')`
+- **lib_route.lua** — Wagon-route legs: `route.mode(steps, on_done)` builds a whole mode from an ordered list of `pull wagon ...` / `open ...` commands, handling the differing advance timing of each (see Route Legs)
+
+## Route Legs (`lib_route`)
+
+Long wagon hauls are built with `lib_route.lua` instead of hand-written reaction tables. A leg file declares its command list and a completion callback, and `route.mode()` returns the mode table:
+
+```lua
+local route = require('lib_route')
+local after = require('lib_after')
+
+return route.mode(
+    { 'pull wagon ne 3 e 8 n 5', 'open gate', 'pull wagon e 3 s 1' },
+    function() after.finish('next_leg') end
+)
+```
+
+Advance timing differs by command type and is handled inside the library: `open` advances on confirmation; a pull covering more than one room in a direction emits `You stop pulling` and advances on the following unbusy; an all-single-room pull emits no stop marker and advances by counting one unbusy per room.
+
+Split a haul into one mode per leg — a run broken mid-haul then resumes by re-running that leg alone. Legs call `after.parse(args)` in `on_start`, so they honor `after:` like any other completing mode.
+
+## Mode Chaining (`after:`)
+
+Any mode that runs to completion supports an `after:<mode>` argument that switches to `<mode>` on finish instead of stopping. Implemented via `lib_after.lua`: call `after.parse(args)` at the top of `on_start` (it strips the token, in any position, and returns the remaining args), and replace each successful-completion `set_mode('disable')` with `after.finish()` (or `after.finish('idle')` etc. to chain elsewhere by default). Arg-validation aborts keep bare `set_mode('disable')` so a failed run does not chain. Chains nest — each mode carries its own `after:`.
 
 ## File Naming
 

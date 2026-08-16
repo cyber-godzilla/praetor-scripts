@@ -12,6 +12,7 @@ Options:
 ]]
 local strings = require('lib_strings')
 local herbmap = require('lib_herbmap')
+local after = require('lib_after')
 
 local M = {}
 
@@ -90,6 +91,7 @@ gather_next_herb = function()
 end
 
 function M.on_start(args)
+    args = after.parse(args)
     local config = parse_args(args)
 
     if not config.room_key then
@@ -331,7 +333,7 @@ M.reactions = {
         action = function(text)
             if state.get('phase') ~= 'moving' then return end
             notify('Herbmap', 'Reached edge: ' .. text)
-            set_mode('disable')
+            after.finish()
         end,
     },
 }

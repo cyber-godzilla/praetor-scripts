@@ -3,10 +3,12 @@ Leaves the Franlius baths to go to the northern half of Franlius.
 Expects you to be laying when this starts.
 ]]
 local strings = require('lib_strings')
+local after = require('lib_after')
 
 local M = {}
 
 function M.on_start(args)
+    after.parse(args)
     state.set('step', 1)
     send('stand')
 end
@@ -41,7 +43,7 @@ M.reactions = {
                 send('jump bridge')
             elseif step == 5 then
                 notify('Completed', 'Route parsing')
-                set_mode('idle')
+                after.finish('idle')
             end
         end,
     },
