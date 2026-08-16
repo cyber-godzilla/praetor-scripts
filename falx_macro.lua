@@ -15,6 +15,9 @@ local combat = require('lib_combat')
 
 local M = {}
 
+M.usage = '[nokill]'
+M.desc = 'Falx rotation with periodic stun, ankle drag, and eviscerate'
+
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6'}
 
 local function exit_submode()

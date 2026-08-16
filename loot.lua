@@ -11,6 +11,10 @@ local after = require('lib_after')
 
 local M = {}
 
+M.usage = '<item|alias> [corpse#]'
+M.desc = 'Take a pipe-delimited item list from every corpse in the room'
+M.chains = true
+
 function M.on_start(args)
     args = after.parse(args)
     if not args[1] then

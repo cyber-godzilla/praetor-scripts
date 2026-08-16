@@ -17,6 +17,10 @@ local after = require('lib_after')
 
 local M = {}
 
+M.usage = '<alias|items> [vendor] [container]'
+M.desc = 'Sell the contents of a wagon to a vendor'
+M.chains = true
+
 function M.on_start(args)
     if not args[1] then
         log('wagon mode requires at least one argument')

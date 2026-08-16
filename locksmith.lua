@@ -19,6 +19,10 @@ local after = require('lib_after')
 
 local M = {}
 
+M.usage = '[cont:<types>] [from:<src>] [to:<dst>] [stow:<container>] [open:<bool>] [empty:<target>] [unjam_first:<bool>] [skip:<n>]'
+M.desc = 'Unjam and unlock containers in bulk'
+M.chains = true
+
 local directions = {
     n = true, s = true, e = true, w = true,
     ne = true, nw = true, se = true, sw = true,

@@ -16,6 +16,10 @@ local after = require('lib_after')
 
 local M = {}
 
+M.usage = '<room-key> dir:<direction> [gather:none|rare|all] [stow:<container>] [wagon:<bool>]'
+M.desc = 'Survey rooms for herb spawn rates, optionally gathering what is found'
+M.chains = true
+
 local function parse_args(args)
     local config = {
         room_key = nil,

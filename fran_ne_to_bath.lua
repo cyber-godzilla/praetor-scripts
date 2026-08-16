@@ -6,6 +6,8 @@ local strings = require('lib_strings')
 
 local M = {}
 
+M.desc = 'Walk from northeast Franlius back to the Franlius baths'
+
 function M.on_start(args)
     state.set('step', 1)
     send('walk s 11')

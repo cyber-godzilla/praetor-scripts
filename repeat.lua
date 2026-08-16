@@ -5,6 +5,8 @@ local strings = require('lib_strings')
 
 local M = {}
 
+M.desc = 'Send "." every time you are no longer busy'
+
 function M.on_start(args)
     send('.')
 end

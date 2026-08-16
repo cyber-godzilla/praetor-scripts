@@ -8,6 +8,9 @@ local combat = require('lib_combat')
 
 local M = {}
 
+M.usage = '[nokill]'
+M.desc = 'Chainblade rotation, working a no-mind attack in every 30 seconds'
+
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6', 'at7'}
 
 local function chain_attack()

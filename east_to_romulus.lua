@@ -6,6 +6,9 @@ local after = require('lib_after')
 
 local M = {}
 
+M.desc = 'Pull a wagon from the Monlon east gate to Romulus'
+M.chains = true
+
 local steps = {
     'pull wagon w 2 n 1',
     'pull wagon w 2 n 1',

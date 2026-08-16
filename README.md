@@ -105,3 +105,65 @@ mode, so a leg's tail can be overridden at the command line
 (`/mode <leg> after:disable`) or chained onward into a `wagon` sell that
 carries its own `after:`.
 
+## Mode Metadata (`usage` / `desc` / `chains`)
+
+Every mode declares what it is and what arguments it takes, so the client can
+show that information as you type instead of making you open the file. Praetor
+reads these three optional fields off the mode table when it loads a script:
+
+```lua
+local M = {}
+
+M.usage = '<item|alias> [corpse#]'
+M.desc = 'Take a pipe-delimited item list from every corpse in the room'
+M.chains = true
+```
+
+Typing `/mode loot ` in the client then surfaces the signature and the
+description, and `/list` shows each mode with its own line rather than a bare
+name.
+
+**`usage`** — the mode's arguments, without the mode name (the client already
+shows that). Omit the field entirely when a mode takes no arguments. The
+notation follows what the scripts already used in their header comments:
+
+| Notation | Meaning |
+|---|---|
+| `<item>` | required argument |
+| `[corpse#]` | optional argument |
+| `[nokill]` | literal flag word, passed verbatim |
+| `a\|b\|c` | pick one of these values |
+| `key:<value>` | named option in colon syntax |
+| `[target...]` | repeatable argument |
+
+**`desc`** — one line, sentence case, no trailing period. Describe what the
+mode does, not how it works.
+
+**`chains`** — set to `true` only when the mode genuinely honors `after:`, which
+means both that `on_start` calls `after.parse(args)` and that a completion point
+calls `after.finish()`. When set, the client appends `[after:<mode>]` to the
+displayed signature, so declaring it on a mode that ignores the token advertises
+something that will not happen. Combat macros never set it (they have no
+completion point), and a route leg whose completion callback hardcodes its own
+`set_mode` must leave it unset even though `lib_route` parses the token.
+
+Route legs have no `M` table of their own, so they pass the same metadata as an
+optional third argument to `route.mode`:
+
+```lua
+return route.mode(
+    { 'pull wagon ne 3 e 8 n 5' },
+    function() after.finish('next_leg') end,
+    {
+        desc = 'Pull the wagon from the gate to the intersection',
+        chains = true,
+    }
+)
+```
+
+All three fields are optional and purely descriptive — nothing validates
+arguments against `usage`, and a mode that declares none behaves exactly as it
+always has. They exist so the client can describe the corpus accurately, which
+means keeping them true is the whole point: update them in the same commit that
+changes a mode's arguments.
+

@@ -7,6 +7,9 @@ local after = require('lib_after')
 
 local M = {}
 
+M.desc = 'Remove every bandage, one body part at a time'
+M.chains = true
+
 -- Parse body parts from condition text.
 local function parse_parts(text, suffix)
     local startIdx = text:find('Your ')

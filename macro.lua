@@ -7,6 +7,9 @@ local combat = require('lib_combat')
 
 local M = {}
 
+M.usage = '[nokill]'
+M.desc = 'Rotate six attack macros against the current target'
+
 -- Set these macros on your character to a set of 
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6'}
 

@@ -6,6 +6,9 @@ local after = require('lib_after')
 
 local M = {}
 
+M.desc = 'Repeat language lesson phrases from a teacher'
+M.chains = true
+
 function M.on_start(args)
     after.parse(args)
 end

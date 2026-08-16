@@ -7,6 +7,9 @@ local after = require('lib_after')
 
 local M = {}
 
+M.desc = 'Walk from the Franlius baths to the northern half of Franlius'
+M.chains = true
+
 function M.on_start(args)
     after.parse(args)
     state.set('step', 1)

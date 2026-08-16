@@ -10,6 +10,10 @@ local after = require('lib_after')
 
 local M = {}
 
+M.usage = '[direction] [nokill]'
+M.desc = 'Aralex pit rotation that moves on once the spawned lizards are dead'
+M.chains = true
+
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6'}
 
 function M.on_start(args)

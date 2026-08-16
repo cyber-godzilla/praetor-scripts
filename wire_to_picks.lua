@@ -6,6 +6,8 @@ local strings = require('lib_strings')
 
 local M = {}
 
+M.desc = 'Forge broken fashioning wires into working lockpicks'
+
 function M.on_start(args)
     log('Starting broken wire to pick processing')
     state.set('step', 'begin')

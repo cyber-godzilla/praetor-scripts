@@ -12,6 +12,9 @@ local locksmithing = require('lib_locksmithing')
 
 local M = {}
 
+M.usage = '[no_jobs]'
+M.desc = 'Rotate locksmithing skills on the board, optionally running jobs'
+
 local board_actions = {'unlock board with lock', 'study board', 'recall lock tumbler'}
 
 function M.on_start(args)

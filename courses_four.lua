@@ -7,6 +7,9 @@ local after = require('lib_after')
 
 local M = {}
 
+M.desc = 'Run four-obstacle training courses'
+M.chains = true
+
 function M.on_start(args)
     after.parse(args)
 end

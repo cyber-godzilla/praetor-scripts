@@ -5,6 +5,9 @@ local after = require('lib_after')
 
 local M = {}
 
+M.desc = 'Wait for fatigue to recover, then chain onward'
+M.chains = true
+
 function M.on_start(args)
     after.parse(args)
 

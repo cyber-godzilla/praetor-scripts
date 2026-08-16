@@ -12,6 +12,10 @@ local after = require('lib_after')
 
 local M = {}
 
+M.usage = '[item] [source] [destination]'
+M.desc = 'Empty every container of a type from one container into another'
+M.chains = true
+
 function M.on_start(args)
     args = after.parse(args)
     local item = args[1] or 'sack'

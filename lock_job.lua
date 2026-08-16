@@ -8,6 +8,9 @@ local locksmithing = require('lib_locksmithing')
 
 local M = {}
 
+M.usage = '<citizen|trader|sailor> [customer...]'
+M.desc = 'Greet queued customers and complete their locksmithing jobs'
+
 function M.on_start(args)
     -- args is the customers list passed from board mode or /job command
     local customers = {}
