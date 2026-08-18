@@ -36,6 +36,7 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `loot` -- Loops through corpses, taking pipe-delimited items. `/mode loot bronze|alanti|retalq`. Pass `drop:<item>` to discard anything taken that matches. `/mode loot hand drop:rawhide`
 - `wagon` -- Sells wagon contents to a vendor. Supports aliases in `lib_wagon.lua`.
 - `empty_containers` -- Empties all containers of a type between containers. `/mode empty_containers sack wagon wagon`
+- `toss_sacks` -- Gets and tosses every item of a type in a direction. `/mode toss_sacks north what:pouch`. Pass `from:<container>` to get out of a container and `try_drag:true` to drag it along after each toss.
 - `remove_bandages` -- Iterates through removing all bandages.
 - `repeat` -- Sends a command every time you're no longer busy.
 - `idle` -- Waits for fatigue to recover, then chains onward (see Mode Chaining).
