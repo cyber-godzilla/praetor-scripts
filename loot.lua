@@ -5,26 +5,44 @@ Uses the pipe-delimited format, but won't support spaces. For example:
 /mode loot bronze helm|manksana|nagoda <-- Does not work
 
 If you need to include items with a space in the name, like "bronze helm", add a custom shorthand in lib_loot.lua
+
+Optional drop:<item> argument in any position. When set, anything you take whose
+message contains <item> is dropped instead of kept. For example:
+/mode loot hand drop:rawhide <-- Loot the "hand" list, but drop any rawhide taken
 ]]
 local loot_tables = require('lib_loot')
 local after = require('lib_after')
 
 local M = {}
 
-M.usage = '<item|alias> [corpse#]'
+M.usage = '<item|alias> [corpse#] [drop:<item>]'
 M.desc = 'Take a pipe-delimited item list from every corpse in the room'
 M.chains = true
 
 function M.on_start(args)
     args = after.parse(args)
-    if not args[1] then
+
+    -- Strip drop:<item> from any arg position, following the same
+    -- prefixed-token convention lib_after uses for after:<mode>.
+    local clean_args = {}
+    local drop = ''
+    for _, a in ipairs(args) do
+        if a:sub(1, 5) == 'drop:' then
+            drop = a:sub(6)
+        else
+            clean_args[#clean_args + 1] = a
+        end
+    end
+    if not clean_args[1] then
         log('loot mode requires at least one argument (item name)')
         set_mode('disable')
         return
     end
-    local item = loot_tables.resolve(args[1])
+    state.set('drop', drop)
+
+    local item = loot_tables.resolve(clean_args[1])
     state.set('item', item)
-    local corpse = tonumber(args[2]) or 1
+    local corpse = tonumber(clean_args[2]) or 1
     state.set('corpse', corpse)
     send('get ' .. item .. ' from ' .. corpse .. ' corpse')
 end
@@ -37,18 +55,23 @@ M.reactions = {
             send('extinguish my glowing')
         end,
     },
-    -- Successfully took item, get next
+    -- Successfully took item, drop it if it matches drop:<item>, else get next
     {
         match = 'You take',
-        action = function()
+        action = function(text)
+            local drop = state.get('drop')
+            if drop and drop ~= '' and text:find(drop, 1, true) then
+                send('drop ' .. drop)
+                return
+            end
             local item = state.get('item')
             local corpse = state.get('corpse')
             send('get ' .. item .. ' from ' .. corpse .. ' corpse')
         end,
     },
-    -- Extinguished, continue looting
+    -- Extinguished or dropped, continue looting
     {
-        match = 'You extinguish',
+        match = {'You extinguish', 'You drop*'},
         action = function()
             local item = state.get('item')
             local corpse = state.get('corpse')

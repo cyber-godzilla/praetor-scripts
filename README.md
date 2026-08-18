@@ -33,7 +33,7 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `learn_languages` -- Repeats language lesson phrases from man/woman teachers.
 
 **Utility:**
-- `loot` -- Loops through corpses, taking pipe-delimited items. `/mode loot bronze|alanti|retalq`
+- `loot` -- Loops through corpses, taking pipe-delimited items. `/mode loot bronze|alanti|retalq`. Pass `drop:<item>` to discard anything taken that matches. `/mode loot hand drop:rawhide`
 - `wagon` -- Sells wagon contents to a vendor. Supports aliases in `lib_wagon.lua`.
 - `empty_containers` -- Empties all containers of a type between containers. `/mode empty_containers sack wagon wagon`
 - `remove_bandages` -- Iterates through removing all bandages.
@@ -114,7 +114,7 @@ reads these optional fields off the mode table when it loads a script:
 ```lua
 local M = {}
 
-M.usage = '<item|alias> [corpse#]'
+M.usage = '<item|alias> [corpse#] [drop:<item>]'
 M.desc = 'Take a pipe-delimited item list from every corpse in the room'
 M.chains = true
 M.hidden = false   -- true keeps it out of the hint; it still runs
