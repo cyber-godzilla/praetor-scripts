@@ -22,14 +22,14 @@ M.desc = 'Sell the contents of a wagon to a vendor'
 M.chains = true
 
 function M.on_start(args)
-    if not args[1] then
+    -- Strip after:<mode> first so a lone after: token cannot pass validation.
+    local clean_args = after.parse(args)
+
+    if not clean_args[1] then
         log('wagon mode requires at least one argument')
         set_mode('disable')
         return
     end
-
-    -- Strip after:<mode> so it doesn't collide with item/target/container args.
-    local clean_args = after.parse(args)
 
     local container = 'wagon'
     local item, target
