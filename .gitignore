@@ -1,5 +1,4 @@
 private/
 __pycache__/
-.claude/worktrees/
-.claude/settings.local.json
+.claude/
 docs/superpowers/
