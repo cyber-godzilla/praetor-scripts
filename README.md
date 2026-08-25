@@ -78,8 +78,8 @@ in place of `set_mode('disable')` at each completion point. Some modes pass
 a fallback (e.g. `after.finish('idle')`) to chain somewhere other than
 `disable` by default. Combat macros (`macro`, `chain_macro`, `falx_macro`,
 `lizard_macro`, `priority_macro`) run indefinitely and have no completion
-point, so they do not support `after:` (except `lizard_macro`, which chains
-when it runs out of targets).
+point, so they do not support `after:` (except `lizard_macro`, which ends
+when fatigue runs out, chaining to `idle` by default).
 
 ## Route Legs (`lib_route`)
 

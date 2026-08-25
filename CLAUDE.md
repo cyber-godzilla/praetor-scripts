@@ -72,7 +72,7 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro, priority_macro)
 - `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, and rotation in one place
 - Attack rotation only happens on player attack rolls (50+ patterns in `strings.attack_roll`), not stun/drag/ev successes
 - Anti-idle recovery: if 5+ seconds since last command, next `[Success:]` triggers an attack
-- Combat macros run indefinitely and have no completion point, so they do not chain (except `lizard_macro`, which chains when it runs out of targets)
+- Combat macros run indefinitely and have no completion point, so they do not chain (except `lizard_macro`, whose action loop is target-driven but which ends when fatigue runs out, chaining to `idle` by default)
 
 ## Shared Libraries
 
