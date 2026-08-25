@@ -87,6 +87,7 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common 
 - **lib_locksmithing.lua** — Locksmithing patterns (customer arrivals, greetings)
 - **lib_herbmap.lua** — Herbalism mapping: room key logic, data access, pattern tables, thresholds
 - **lib_loot.lua** — Loot shorthand aliases for corpse types
+- **lib_drag_paces.lua** — Drag-path patterns: arrival line and blocked-path failures
 - **lib_wagon.lua** — Wagon sell-list aliases for vendors
 - **lib_after.lua** — Mode chaining: `after.parse(args)` strips the `after:<mode>` token in `on_start`, `after.finish([fallback])` chains onward at completion instead of `set_mode('disable')`
 - **lib_route.lua** — Wagon-route legs: `route.mode(steps, on_done)` builds a whole mode from an ordered list of `pull wagon ...` / `open ...` commands, handling the differing advance timing of each (see Route Legs)
