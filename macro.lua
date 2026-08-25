@@ -10,7 +10,8 @@ local M = {}
 M.usage = '[nokill]'
 M.desc = 'Rotate six attack macros against the current target'
 
--- Set these macros on your character to a set of 
+-- Set these macros on your character to your attack rotation (see README,
+-- Expected Macros).
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6'}
 
 function M.on_start(args)

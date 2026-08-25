@@ -1,13 +1,14 @@
 --[[
 Survey rooms for herb spawn rates, persist per-room data, optionally gather.
 /mode herbmap <room-key> dir:<direction>
-/mode herbmap boulder dir:n gather:rare stow:my backpack
+/mode herbmap boulder dir:n gather:rare stow:sack
 /mode herbmap boulder dir:nw gather:all wagon:true
 
 Options:
   dir:<direction>        -- travel direction between rooms (required)
   gather:none|rare|all   -- which herbs to pick up after surveying (default: none)
-  stow:<container>       -- where to put gathered herbs (default: my backpack)
+  stow:<container>       -- where to put gathered herbs, one word only since
+                            args are split on spaces (default: my backpack)
   wagon:true|false       -- use pull wagon instead of go (default: false)
 ]]
 local strings = require('lib_strings')

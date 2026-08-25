@@ -21,7 +21,7 @@ local combat = require('lib_combat')
 
 local M = {}
 
-M.usage = '[target...] [fallback:<mode>] [nokill]'
+M.usage = '[target...] [fallback:<macro>] [nokill]'
 M.desc = 'Rotation that scans the room and focuses targets by priority'
 
 local function parse_args(args)

@@ -8,7 +8,7 @@ local locksmithing = require('lib_locksmithing')
 
 local M = {}
 
-M.usage = '<citizen|trader|sailor> [customer...]'
+M.usage = '<citizen|trader|sailor|scholar|merchant> [customer...]'
 M.desc = 'Greet queued customers and complete their locksmithing jobs'
 
 function M.on_start(args)
