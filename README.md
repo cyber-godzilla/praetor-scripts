@@ -5,7 +5,7 @@ Repository of Lua scripts for use with praetor
 
 These scripts assume certain in-game macros are configured on your character. Combat modes will not work without them.
 
-**All combat modes** (macro, chain_macro, falx_macro, lizard_macro):
+**All combat modes** (macro, chain_macro, falx_macro, lizard_macro, priority_macro):
 - `at1`-`at6` -- Attack rotation slots (chain_macro also uses `at7`)
 - `app1` -- Approach first target ('app 1 <target>' or your weapon's approach move)
 - `adv1` -- Advance toward first target (Melee advance, 'advance 1 <target>')
@@ -27,6 +27,10 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `board` -- Rotates locksmithing skills on the board, optionally accepts and completes jobs. Pass `no_jobs` to just train.
 - `lock_job` -- Accepts a locksmithing job from an NPC. `/mode lock_job citizen|trader|sailor`
 - `wire_to_picks` -- Forges broken wires from lockpick fashioning into functional lockpicks.
+- `locksmith` -- Unjams and unlocks containers in bulk, with configurable source, disposition, open/empty behavior, and difficulty skipping. `/mode locksmith cont:chest from:wagon to:n open:true`
+
+**Herbalism:**
+- `herbmap` -- Surveys rooms for herb spawn rates, persisting per-room data, optionally gathering. `/mode herbmap boulder dir:n gather:rare`
 
 **Training:**
 - `courses_three` / `courses_four` -- Runs 3- or 4-obstacle courses automatically.
@@ -40,7 +44,7 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `drag_paces` -- Drags an item along a path one room at a time, for loads that cannot be pulled like a wagon. `/mode drag_paces sled n:3 e:8 s`
 - `toss_sacks` -- Gets and tosses every item of a type in a direction. `/mode toss_sacks north what:pouch`. Pass `from:<container>` to get out of a container and `try_drag:true` to drag it along after each toss.
 - `remove_bandages` -- Iterates through removing all bandages.
-- `repeat` -- Sends a command every time you're no longer busy.
+- `repeat` -- Sends `.` (a repeat-last-command macro) every time you're no longer busy.
 - `idle` -- Waits for fatigue to recover, then chains onward (see Mode Chaining).
 - `disable` -- Stops all automation.
 
@@ -75,12 +79,13 @@ a fallback (e.g. `after.finish('idle')`) to chain somewhere other than
 `disable` by default. Combat macros (`macro`, `chain_macro`, `falx_macro`,
 `lizard_macro`, `priority_macro`) run indefinitely and have no completion
 point, so they do not support `after:` (except `lizard_macro`, which chains
-when it runs out of fatigue).
+when it runs out of targets).
 
 ## Route Legs (`lib_route`)
 
 Long wagon hauls are built from `lib_route.lua` rather than written out by
-hand. A route file declares an ordered list of `pull wagon ...` / `open ...`
+hand (`east_to_romulus` predates the library and remains hand-written). A
+route file declares an ordered list of `pull wagon ...` / `open ...`
 commands and a completion callback, and `lib_route` turns that into a full
 mode:
 

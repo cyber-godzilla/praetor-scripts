@@ -68,17 +68,16 @@ set_timeout(fn, ms) / set_interval(fn, ms) / clear_timer(id)
 
 ## Macro Mode Architecture
 
-All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common pattern:
+All combat macros (macro, chain_macro, falx_macro, lizard_macro, priority_macro) share a common pattern:
 - `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, and rotation in one place
 - Attack rotation only happens on player attack rolls (50+ patterns in `strings.attack_roll`), not stun/drag/ev successes
 - Anti-idle recovery: if 5+ seconds since last command, next `[Success:]` triggers an attack
 - Combat macros run indefinitely and have no completion point, so they do not chain (except `lizard_macro`, which chains when it runs out of targets)
-- Armor absorption tracked automatically within `handle_success` via `combat.track_absorb(text)`
 
 ## Shared Libraries
 
 - **lib_strings.lua** — Pattern string tables shared across modes (unbusy, must_stand, etc.)
-- **lib_combat.lua** — Shared combat functions: attack rotation, kill/KO handling, approach, absorption tracking
+- **lib_combat.lua** — Shared combat functions: attack rotation, kill/KO handling, approach
 - **lib_chain_macro.lua** — Chain macro–specific patterns (chainblade windup)
 - **lib_falx_macro.lua** — Falx macro–specific patterns (stun roll, stun, drag, eviscerate)
 - **lib_lizard_macro.lua** — Lizard macro–specific patterns (aralex dead)
@@ -107,7 +106,7 @@ Keep them true: update the metadata in the same change that alters a mode's argu
 
 ## Route Legs (`lib_route`)
 
-Long wagon hauls are built with `lib_route.lua` instead of hand-written reaction tables. A leg file declares its command list and a completion callback, and `route.mode()` returns the mode table:
+Long wagon hauls are built with `lib_route.lua` instead of hand-written reaction tables (`east_to_romulus` predates the library and remains hand-written). A leg file declares its command list and a completion callback, and `route.mode()` returns the mode table:
 
 ```lua
 local route = require('lib_route')
