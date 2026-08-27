@@ -10,6 +10,8 @@ If you need to include items with a space in the name, like "bronze helm", add a
 
 Every other argument is a key:value token and may appear in any position:
   start:<corpse#>     -- corpse to begin on (default: 1)
+  from:<noun>         -- replaces "corpse" in the get command, for looting
+                         piles and other sources
   stow:<container>    -- container word for the game's `stow <#> <container>`,
                          one word only since args are split on spaces
   stow_start:<n>      -- earliest instance of that container that may be used;
@@ -25,7 +27,7 @@ local after = require('lib_after')
 
 local M = {}
 
-M.usage = '<item|alias> [start:<corpse#>] [stow:<container>] [stow_start:<n>] [drop:<item|list>]'
+M.usage = '<item|alias> [start:<corpse#>] [from:<noun>] [stow:<container>] [stow_start:<n>] [drop:<item|list>]'
 M.desc = 'Take a pipe-delimited item list from every corpse, rotating stowage containers'
 M.chains = true
 
@@ -67,19 +69,22 @@ function stow.rotate()
     return true
 end
 
-local option_keys = {start = true, stow = true, stow_start = true, drop = true}
+local option_keys = {start = true, from = true, stow = true, stow_start = true, drop = true}
 
 -- Consume key:value tokens wherever they sit, following the same convention
 -- lib_after uses for after:<mode>; the first bare token is the item list.
 -- Returns nil plus a message when an argument doesn't make sense.
 local function parse_args(args)
-    local config = {item = nil, start = 1, stow = '', stow_start = nil, drop = {}}
+    local config = {item = nil, start = 1, from = 'corpse', stow = '', stow_start = nil, drop = {}}
     for _, arg in ipairs(args) do
         local key, value = arg:match('^(.-):(.*)$')
         if key and option_keys[key] then
             if key == 'start' then
                 config.start = tonumber(value)
                 if not config.start then return nil, 'start: needs a number' end
+            elseif key == 'from' then
+                if value == '' then return nil, 'from: needs a noun' end
+                config.from = value
             elseif key == 'stow' then
                 config.stow = value
             elseif key == 'stow_start' then
@@ -108,7 +113,7 @@ end
 -- Every command records what reply it waits on, so the failure both share can
 -- tell an exhausted corpse run from exhausted stowage.
 local function send_get()
-    send('get ' .. state.get('item') .. ' from ' .. state.get('corpse') .. ' corpse')
+    send('get ' .. state.get('item') .. ' from ' .. state.get('corpse') .. ' ' .. state.get('from'))
     state.set('awaiting', 'get')
 end
 
@@ -124,6 +129,7 @@ function M.on_start(args)
 
     state.set('item', loot_tables.resolve(config.item))
     state.set('corpse', config.start)
+    state.set('from', config.from)
     state.set('drop', config.drop)
     stow.configure(config.stow, config.stow_start)
 

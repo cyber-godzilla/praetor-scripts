@@ -37,8 +37,8 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `learn_languages` -- Repeats language lesson phrases from man/woman teachers.
 
 **Utility:**
-- `loot` -- Loops through corpses, taking pipe-delimited items. `/mode loot bronze|alanti|retalq`. Pass `drop:<item>` to discard anything taken that matches. `/mode loot hand drop:rawhide`
-- `loot_stow` -- Loots corpses like `loot`, stowing takes and rotating to the next container as each fills. `/mode loot_stow hand stow:pack stow_start:3 drop:rawhide`
+- `loot` -- Loops through corpses, taking pipe-delimited items. `/mode loot bronze|alanti|retalq`. Pass `drop:<item>` to discard anything taken that matches, or `from:<noun>` to loot something other than corpses. `/mode loot hand drop:rawhide from:pile`
+- `loot_stow` -- Loots corpses like `loot` (including `from:`), stowing takes and rotating to the next container as each fills. `/mode loot_stow hand stow:pack stow_start:3 drop:rawhide`
 - `wagon` -- Sells wagon contents to a vendor. Supports aliases in `lib_wagon.lua`.
 - `empty_containers` -- Empties all containers of a type between containers. `/mode empty_containers sack wagon wagon`
 - `drag_paces` -- Drags an item along a path one room at a time, for loads that cannot be pulled like a wagon. `/mode drag_paces sled n:3 e:8 s`

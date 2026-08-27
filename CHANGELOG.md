@@ -7,6 +7,14 @@ and versions follow [Semantic Versioning](https://semver.org/): major for
 changes that break how existing modes are invoked, minor for new modes or
 new arguments, patch for fixes.
 
+## [Unreleased]
+
+### Added
+
+- `loot` and `loot_stow` accept `from:<noun>` in any argument position to
+  loot something other than corpses, e.g. `/mode loot bronze from:pile`.
+  Omitted, both modes loot corpses as before.
+
 ## [0.1.0] - 2026-08-25
 
 First versioned release, cut after a full repository audit.

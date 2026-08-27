@@ -9,26 +9,37 @@ If you need to include items with a space in the name, like "bronze helm", add a
 Optional drop:<item> argument in any position. When set, anything you take whose
 message contains <item> is dropped instead of kept. For example:
 /mode loot hand drop:rawhide <-- Loot the "hand" list, but drop any rawhide taken
+
+Optional from:<noun> argument in any position. Replaces "corpse" in the get
+command, for looting piles and other sources. For example:
+/mode loot bronze from:pile <-- get bronze from 1 pile, 2 pile, ...
 ]]
 local loot_tables = require('lib_loot')
 local after = require('lib_after')
 
 local M = {}
 
-M.usage = '<item|alias> [corpse#] [drop:<item>]'
+M.usage = '<item|alias> [corpse#] [from:<noun>] [drop:<item>]'
 M.desc = 'Take a pipe-delimited item list from every corpse in the room'
 M.chains = true
+
+local function send_get()
+    send('get ' .. state.get('item') .. ' from ' .. state.get('corpse') .. ' ' .. state.get('from'))
+end
 
 function M.on_start(args)
     args = after.parse(args)
 
-    -- Strip drop:<item> from any arg position, following the same
-    -- prefixed-token convention lib_after uses for after:<mode>.
+    -- Strip drop:<item> and from:<noun> from any arg position, following the
+    -- same prefixed-token convention lib_after uses for after:<mode>.
     local clean_args = {}
     local drop = ''
+    local from = 'corpse'
     for _, a in ipairs(args) do
         if a:sub(1, 5) == 'drop:' then
             drop = a:sub(6)
+        elseif a:sub(1, 5) == 'from:' then
+            from = a:sub(6)
         else
             clean_args[#clean_args + 1] = a
         end
@@ -38,13 +49,17 @@ function M.on_start(args)
         set_mode('disable')
         return
     end
+    if from == '' then
+        log('loot mode from: needs a noun')
+        set_mode('disable')
+        return
+    end
     state.set('drop', drop)
+    state.set('from', from)
 
-    local item = loot_tables.resolve(clean_args[1])
-    state.set('item', item)
-    local corpse = tonumber(clean_args[2]) or 1
-    state.set('corpse', corpse)
-    send('get ' .. item .. ' from ' .. corpse .. ' corpse')
+    state.set('item', loot_tables.resolve(clean_args[1]))
+    state.set('corpse', tonumber(clean_args[2]) or 1)
+    send_get()
 end
 
 M.reactions = {
@@ -64,18 +79,14 @@ M.reactions = {
                 send('drop ' .. drop)
                 return
             end
-            local item = state.get('item')
-            local corpse = state.get('corpse')
-            send('get ' .. item .. ' from ' .. corpse .. ' corpse')
+            send_get()
         end,
     },
     -- Extinguished or dropped, continue looting
     {
         match = {'You extinguish', 'You drop*'},
         action = function()
-            local item = state.get('item')
-            local corpse = state.get('corpse')
-            send('get ' .. item .. ' from ' .. corpse .. ' corpse')
+            send_get()
         end,
     },
     -- No more corpses
@@ -90,10 +101,8 @@ M.reactions = {
     {
         match = "You don't see",
         action = function()
-            local corpse = state.get('corpse') + 1
-            state.set('corpse', corpse)
-            local item = state.get('item')
-            send('get ' .. item .. ' from ' .. corpse .. ' corpse')
+            state.set('corpse', state.get('corpse') + 1)
+            send_get()
         end,
     },
 }
