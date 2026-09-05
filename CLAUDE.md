@@ -90,6 +90,7 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro, priority_macro)
 - **lib_wagon.lua** — Wagon sell-list aliases for vendors
 - **lib_after.lua** — Mode chaining: `after.parse(args)` strips the `after:<mode>` token in `on_start`, `after.finish([fallback])` chains onward at completion instead of `set_mode('disable')`
 - **lib_route.lua** — Wagon-route legs: `route.mode(steps, on_done)` builds a whole mode from an ordered list of `pull wagon ...` / `open ...` commands, handling the differing advance timing of each (see Route Legs)
+- **lib_walk.lua** — On-foot travel legs: `walk.mode(steps, on_done, meta)` sequences `walk to <place>` / `walk <spec>` commands and explicit-marker steps (`{cmd = 'u', match = 'You climb'}`) into a mode; single-pace moves use bare directions with an arrival match
 
 ## Mode Metadata (`usage` / `desc` / `chains` / `hidden`)
 

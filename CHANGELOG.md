@@ -11,6 +11,9 @@ new arguments, patch for fixes.
 
 ### Added
 
+- `lib_walk` — shared library for building on-foot travel modes from an
+  ordered step list, the walking analog of `lib_route`.
+
 - `loot` and `loot_stow` accept `from:<noun>` in any argument position to
   loot something other than corpses, e.g. `/mode loot bronze from:pile`.
   Omitted, both modes loot corpses as before.

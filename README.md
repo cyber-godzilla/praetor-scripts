@@ -113,6 +113,31 @@ mode, so a leg's tail can be overridden at the command line
 (`/mode <leg> after:disable`) or chained onward into a `wagon` sell that
 carries its own `after:`.
 
+## Walking Legs (`lib_walk`)
+
+On-foot travel legs are built from `lib_walk.lua`, the walking analog of
+`lib_route`. A leg declares an ordered step list — `walk to <place>`
+path-walks, multi-direction `walk <spec>` commands, and explicit-marker
+steps for everything else — and `walk.mode()` turns it into a full mode:
+
+```lua
+local walk = require('lib_walk')
+local after = require('lib_after')
+
+return walk.mode(
+    { 'walk to market', 'walk e 2 s 1', {cmd = 'u', match = 'You climb'} },
+    function() after.finish('next_leg') end,
+    { desc = 'Walk to the market stall', chains = true }
+)
+```
+
+A `walk to` step advances on the pathing completion line ("having reached
+your destination"), a `walk <spec>` step on `You stop walking.`, and any
+other command on its explicit `match`. Single-pace moves should be bare
+directions with an arrival match — a one-room `walk` command is not
+trusted to emit a stop line. Legs honor `after:` and resume like route
+legs: re-run the leg.
+
 ## Mode Metadata (`usage` / `desc` / `chains` / `hidden`)
 
 Every mode declares what it is and what arguments it takes, so the client can
