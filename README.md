@@ -133,10 +133,12 @@ return walk.mode(
 
 A `walk to` step advances on the pathing completion line ("having reached
 your destination"), a `walk <spec>` step on `You stop walking.`, and any
-other command on its explicit `match`. Single-pace moves should be bare
-directions with an arrival match — a one-room `walk` command is not
-trusted to emit a stop line. Legs honor `after:` and resume like route
-legs: re-run the leg.
+other command on its explicit `match`. A step whose command incurs a
+roundtime (unlocking a door, say) takes `unbusy = true`: the next command
+is held until the unbusy line that follows the step's match. Single-pace
+moves should be bare directions with an arrival match — a one-room `walk`
+command is not trusted to emit a stop line. Legs honor `after:` and
+resume like route legs: re-run the leg.
 
 ## Mode Metadata (`usage` / `desc` / `chains` / `hidden`)
 

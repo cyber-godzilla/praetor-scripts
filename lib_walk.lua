@@ -7,6 +7,9 @@ Each step is a command string or {cmd = '...', match = '...'}:
   - 'walk <spec>' (multi-direction, e.g. 'walk e 2 s 1') advances on
     'You stop walking.' (the period keeps it from matching the line above)
   - anything else needs an explicit match: {cmd = 'u', match = 'You climb'}
+  - add unbusy = true to a step whose command incurs a roundtime (e.g.
+    unlocking a door): the next command is held until the unbusy line
+    that follows the step's match
 
 Usage (one file per leg):
     local walk = require('lib_walk')
@@ -22,6 +25,7 @@ marker never arrives stalls the mode, and the run resumes by re-running
 the leg. Single-pace moves should be bare directions with an arrival
 match -- a one-room 'walk' command is not trusted to emit a stop line.
 ]]
+local strings = require('lib_strings')
 local after = require('lib_after')
 
 local W = {}
@@ -52,7 +56,18 @@ function W.mode(steps, on_done, meta)
 
     local function send_step(i)
         state.set('walk_idx', i)
+        state.set('walk_unbusy_wait', false)
         send(step_of(steps[i]).cmd)
+    end
+
+    local function advance()
+        local i = state.get('walk_idx')
+        if i >= #steps then
+            state.set('walk_idx', nil)
+            on_done()
+        else
+            send_step(i + 1)
+        end
     end
 
     function M.on_start(args)
@@ -78,18 +93,29 @@ function W.mode(steps, on_done, meta)
             condition = function()
                 local i = state.get('walk_idx')
                 return i ~= nil and step_of(steps[i]).match == m
+                    and not state.get('walk_unbusy_wait')
             end,
             action = function()
-                local i = state.get('walk_idx')
-                if i >= #steps then
-                    state.set('walk_idx', nil)
-                    on_done()
+                local step = step_of(steps[state.get('walk_idx')])
+                if step.unbusy then
+                    state.set('walk_unbusy_wait', true)
                 else
-                    send_step(i + 1)
+                    advance()
                 end
             end,
         }
     end
+
+    -- A roundtime step's marker arrived: advance on the unbusy after it.
+    M.reactions[#M.reactions + 1] = {
+        match = strings.unbusy,
+        condition = function()
+            return state.get('walk_unbusy_wait') == true
+        end,
+        action = function()
+            advance()
+        end,
+    }
 
     return M
 end
