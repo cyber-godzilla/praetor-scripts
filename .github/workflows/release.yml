@@ -1,0 +1,82 @@
+# Release on every push to main and on every v* tag.
+#
+# Push to main   -> tag the commit with the next patch version (v0.1.0 -> v0.1.1),
+#                   then publish a release for it. Skipped when the commit already
+#                   carries a v* tag, so a hand-cut minor/major tag pushed alongside
+#                   its commit is not double-tagged.
+# Push of v* tag -> publish a release for that tag (hand-cut minor/major versions).
+#
+# Both paths run in one job because a tag pushed with GITHUB_TOKEN does not fire
+# a second workflow run. The release asset is `git archive` of the tag, so only
+# tracked files are included; gitignored paths such as private/ never ship.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_TYPE" = tag ]; then
+            echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          existing=$(git tag --points-at HEAD --list 'v*' | head -n1)
+          if [ -n "$existing" ]; then
+            echo "HEAD already tagged $existing; the tag push publishes the release."
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          latest=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+          latest=${latest:-v0.0.0}
+          IFS=. read -r major minor patch <<< "${latest#v}"
+          next="v${major}.${minor}.$((patch + 1))"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$next" -m "Release $next"
+          git push origin "$next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Build archive
+        if: steps.tag.outputs.tag != ''
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git archive --format=zip --prefix="praetor-scripts-${TAG}/" \
+            -o "praetor-scripts-${TAG}.zip" "$TAG"
+
+      - name: Publish release
+        if: steps.tag.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" "praetor-scripts-${TAG}.zip" \
+            --title "$TAG" --generate-notes

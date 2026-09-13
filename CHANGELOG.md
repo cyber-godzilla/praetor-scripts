@@ -9,7 +9,14 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-13
+
 ### Added
+
+- Release workflow: every push to `main` is tagged with the next patch
+  version and published as a GitHub release with a zip of the tracked
+  files. Minor and major versions are still tagged by hand; pushing such a
+  tag publishes its release the same way.
 
 - `lib_walk` — shared library for building on-foot travel modes from an
   ordered step list, the walking analog of `lib_route`.
