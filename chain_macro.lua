@@ -17,12 +17,13 @@ local function chain_attack()
     local now = time.now()
     local last_nm = state.get('last_nomind') or 0
     if time.since(last_nm) > 30000 then
-        state.set('last_nomind', now)
-        send('nm')
-        state.set('last_command_time', now)
-        return
+        if combat.send_attack('nm') then
+            state.set('last_nomind', now)
+            return true
+        end
+        return false
     end
-    combat.attack()
+    return combat.attack()
 end
 
 function M.on_start(args)
@@ -127,22 +128,19 @@ M.reactions = {
     -- Approached
     {
         match = combat.approached,
-        action = function()
-            state.set('approached', true)
-            chain_attack()
-        end,
+        action = function() combat.on_approached(chain_attack) end,
     },
     -- Already engaging: attack
     {
         match = 'You are already engaging',
-        action = function() chain_attack() end,
+        action = function() combat.on_approached(chain_attack) end,
     },
     -- No targets
     {
         match = combat.no_targets,
         action = function()
-            state.set('target_ko', false)
-            state.set('approached', false)
+            state.set('winding_up', false)
+            combat.on_no_targets()
         end,
     },
     -- Wrong stance

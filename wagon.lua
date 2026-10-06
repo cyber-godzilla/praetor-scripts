@@ -22,7 +22,7 @@ M.desc = 'Sell the contents of a wagon to a vendor'
 M.chains = true
 
 function M.on_start(args)
-    -- Strip after:<mode> first so a lone after: token cannot pass validation.
+    -- Strip the completion handoff first so it cannot pass item validation.
     local clean_args = after.parse(args)
 
     if not clean_args[1] then
@@ -39,8 +39,13 @@ function M.on_start(args)
         target = clean_args[1]
         if clean_args[2] then container = clean_args[2] end
     else
+        if not clean_args[2] then
+            log('wagon mode requires a vendor when the first argument is not an alias')
+            set_mode('disable')
+            return
+        end
         item = clean_args[1]
-        target = clean_args[2] or ''
+        target = clean_args[2]
         if clean_args[3] then container = clean_args[3] end
     end
 

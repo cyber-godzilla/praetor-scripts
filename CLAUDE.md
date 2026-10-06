@@ -6,6 +6,14 @@ This is **praetor-scripts**, a collection of Lua automation scripts for the [Pra
 
 Scripts are loaded by Praetor from configurable directories. Each `.lua` file that returns a table with `reactions` and/or `on_start` is registered as a mode. Other `.lua` files are available via `require()`.
 
+## Privacy and Git Identity
+
+- Never commit machine-local absolute paths, local account names, the repository owner's name, or other identifying information. Use repository-relative paths and neutral placeholders in code, documentation, tests, fixtures, logs, and generated artifacts.
+- Before staging or committing, inspect the staged content for local paths and identifying information. Do not force-add ignored local files as a workaround.
+- Treat `private/` as a sealed boundary. A file within it may be referenced only by other files within `private/`; code, documentation, tests, tooling, and packaging outside it must not name, import, invoke, describe, or depend on an individual private file.
+- Use only the `cyber-godzilla` identity for human or local Git authorship, committer and tagger metadata, co-author attribution, and cryptographic signing. GitHub-generated metadata created by the checked-in release automation may use GitHub's `noreply` identity.
+- Before any operation that creates or rewrites commits or tags, verify the effective Git name, email, and signing identity. If any identity is missing, ambiguous, or does not belong to `cyber-godzilla`, stop without performing the operation; do not fall back to the machine's user or global Git identity.
+
 ## Script Structure
 
 A mode file returns a table:
@@ -15,7 +23,7 @@ local M = {}
 
 M.usage = '<item> [count]'   -- args only, no mode name; omit when the mode takes none
 M.desc = 'One line, sentence case, no trailing period'
-M.chains = true              -- only when after: is genuinely honored (see Mode Metadata)
+M.chains = true              -- only when completion suffixes are honored (see Mode Metadata)
 M.hidden = false             -- true keeps it out of the command hint; it still runs
 
 function M.on_start(args)
@@ -68,7 +76,7 @@ set_timeout(fn, ms) / set_interval(fn, ms) / clear_timer(id)
 
 ## Macro Mode Architecture
 
-All combat macros (macro, chain_macro, falx_macro, lizard_macro, priority_macro) share a common pattern:
+All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common pattern:
 - `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, and rotation in one place
 - Attack rotation only happens on player attack rolls (50+ patterns in `strings.attack_roll`), not stun/drag/ev successes
 - Anti-idle recovery: if 5+ seconds since last command, next `[Success:]` triggers an attack
@@ -88,7 +96,7 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro, priority_macro)
 - **lib_loot.lua** — Loot shorthand aliases for corpse types
 - **lib_drag_paces.lua** — Drag-path patterns: arrival line and blocked-path failures
 - **lib_wagon.lua** — Wagon sell-list aliases for vendors
-- **lib_after.lua** — Mode chaining: `after.parse(args)` strips the `after:<mode>` token in `on_start`, `after.finish([fallback])` chains onward at completion instead of `set_mode('disable')`
+- **lib_after.lua** — Completion handoffs: `after.parse(args)` strips an `after_mode:`, `after_do:`, or `after_ps:` suffix in `on_start`; `after.finish([fallback])` switches modes with arguments, sends a game command, or starts PraetorScript at completion. Legacy `after:<mode>` remains supported.
 - **lib_route.lua** — Wagon-route legs: `route.mode(steps, on_done)` builds a whole mode from an ordered list of `pull wagon ...` / `open ...` commands, handling the differing advance timing of each (see Route Legs)
 - **lib_walk.lua** — On-foot travel legs: `walk.mode(steps, on_done, meta)` sequences `walk to <place>` / `walk <spec>` commands and explicit-marker steps (`{cmd = 'u', match = 'You climb'}`) into a mode; single-pace moves use bare directions with an arrival match
 
@@ -98,8 +106,8 @@ Every mode declares these optional fields directly after `local M = {}`, in that
 
 - **`usage`** — arguments only, no mode name. `<required>`, `[optional]`, `[flagword]`, `a|b|c`, `key:<value>`, `[repeatable...]`. Omit the field when the mode takes no arguments.
 - **`desc`** — one line, sentence case, no trailing period. What it does, not how.
-- **`chains`** — `true` only when `on_start` calls `after.parse(args)` *and* a completion point calls `after.finish()`. The client appends `[after:<mode>]` when set, so it must not be declared on a mode that parses the token but ignores it (combat macros have no completion point; a route leg whose callback hardcodes `set_mode` ignores it).
-- **`hidden`** — `true` keeps the mode out of the command hint, for helpers that are real modes but noise while typing. Hint only: the mode stays loaded, the picker still lists it, and `/mode <name>` still runs it. Clearing `usage`/`desc` does *not* hide a mode — it just leaves a bare name in the hint. See `private/farm_rps.lua`.
+- **`chains`** — `true` only when `on_start` calls `after.parse(args)` *and* a completion point calls `after.finish()`. The client appends the generic `after_<mode|do|ps>:<mode|command|praetorscript>` suffix when set, so it must not be declared on a mode that parses handoffs but ignores them (combat macros have no completion point; a route leg whose callback hardcodes `set_mode` ignores them).
+- **`hidden`** — `true` keeps the mode out of the command hint, for helpers that are real modes but noise while typing. Hint only: the mode stays loaded, the picker still lists it, and `/mode <name>` still runs it. Clearing `usage`/`desc` does *not* hide a mode — it just leaves a bare name in the hint.
 
 Route legs pass the same table as `route.mode`'s optional third argument instead.
 
@@ -121,11 +129,11 @@ return route.mode(
 
 Advance timing differs by command type and is handled inside the library: `open` advances on confirmation; a pull covering more than one room in a direction emits `You stop pulling` and advances on the following unbusy; an all-single-room pull emits no stop marker and advances by counting one unbusy per room.
 
-Split a haul into one mode per leg — a run broken mid-haul then resumes by re-running that leg alone. Legs call `after.parse(args)` in `on_start`, so they honor `after:` like any other completing mode.
+Split a haul into one mode per leg — a run broken mid-haul then resumes by re-running that leg alone. Legs call `after.parse(args)` in `on_start`, so they honor completion handoffs like any other completing mode.
 
-## Mode Chaining (`after:`)
+## Completion Handoffs
 
-Any mode that runs to completion supports an `after:<mode>` argument that switches to `<mode>` on finish instead of stopping. Implemented via `lib_after.lua`: call `after.parse(args)` at the top of `on_start` (it strips the token, in any position, and returns the remaining args), and replace each successful-completion `set_mode('disable')` with `after.finish()` (or `after.finish('idle')` etc. to chain elsewhere by default). Arg-validation aborts keep bare `set_mode('disable')` so a failed run does not chain. Chains nest — each mode carries its own `after:`.
+Any mode that runs to completion supports `after_mode:<mode> [args...]`, `after_do:<command...>`, and `after_ps:<script...>`. The first suffix token and everything after it are the handoff payload, so the suffix follows the current mode's arguments. `after_mode:` passes its remaining tokens to the next mode and therefore supports nested handoffs. `after_do:` sends one raw game command; `after_ps:` runs one expression through Praetor's typed-input parser. Legacy `after:<mode>` remains a one-token compatibility alias. Implement via `lib_after.lua`: call `after.parse(args)` at the top of `on_start`, then replace each successful-completion `set_mode('disable')` with `after.finish()` (or `after.finish('idle')` to use a different default). Argument-validation aborts keep bare `set_mode('disable')` so a failed run does not hand off.
 
 ## File Naming
 

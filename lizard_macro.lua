@@ -21,26 +21,35 @@ function M.on_start(args)
     state.set('do_kill', true)
     state.set('approached', true)
     state.set('target_ko', false)
-    state.set('direction', args[1] or nil)
     state.set('moving', false)
 
     local actions = {}
     for _, v in ipairs(default_actions) do actions[#actions + 1] = v end
     state.set('actions_list', actions)
 
+    local direction
     for _, arg in ipairs(args) do
-        if arg == 'nokill' then state.set('do_kill', false) end
+        if arg == 'nokill' then
+            state.set('do_kill', false)
+        elseif not direction then
+            direction = arg
+        else
+            log('lizard_macro mode unexpected argument "' .. arg .. '"')
+            set_mode('disable')
+            return
+        end
     end
+    state.set('direction', direction)
 
     metrics.track('kills', 'Kills')
     metrics.track('crits', 'Crits')
     metrics.track('actions', 'Actions')
 
-    log('Lizard macro mode started, direction: ' .. (args[1] or 'none'))
+    log('Lizard macro mode started, direction: ' .. (direction or 'none'))
 
-    if args[1] then
+    if direction then
         state.set('moving', true)
-        send(args[1])
+        send(direction)
     end
 
     combat.start_watchdog()
@@ -117,15 +126,12 @@ M.reactions = {
     -- Approached
     {
         match = combat.approached,
-        action = function()
-            state.set('approached', true)
-            combat.attack()
-        end,
+        action = function() combat.on_approached() end,
     },
     -- Already engaging: attack
     {
         match = 'You are already engaging',
-        action = function() combat.attack() end,
+        action = function() combat.on_approached() end,
     },
     -- Lizard dead: move to next area
     {
@@ -150,10 +156,7 @@ M.reactions = {
     -- No targets
     {
         match = combat.no_targets,
-        action = function()
-            state.set('target_ko', false)
-            state.set('approached', false)
-        end,
+        action = function() combat.on_no_targets() end,
     },
     -- Wrong stance
     {

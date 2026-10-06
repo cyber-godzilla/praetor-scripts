@@ -56,13 +56,17 @@ local function parse_args(args)
     return config
 end
 
-local function build_work_cmd(verb)
+local function build_container_ref()
     local cont = state.get('cont')
     if state.get('in_place') then
         local idx = state.get('container_index')
-        return verb .. ' ' .. idx .. ' ' .. cont .. ' with lockpick'
+        return idx .. ' ' .. cont
     end
-    return verb .. ' ' .. cont .. ' with lockpick'
+    return cont
+end
+
+local function build_work_cmd(verb)
+    return verb .. ' ' .. build_container_ref() .. ' with lockpick'
 end
 
 local function build_get_cmd()
@@ -139,12 +143,12 @@ send_action = function()
     end
 
     if state.get('open') and not state.get('is_opened') then
-        send('open ' .. state.get('cont'))
+        send('open ' .. build_container_ref())
         return
     end
 
     if state.get('empty') and not state.get('is_emptied') then
-        send('empty ' .. state.get('cont') .. ' into ' .. state.get('empty'))
+        send('empty ' .. build_container_ref() .. ' into ' .. state.get('empty'))
         return
     end
 
@@ -202,20 +206,6 @@ function M.on_start(args)
 end
 
 M.reactions = {
-    -- Difficulty check: skip hard unjams
-    {
-        match = strings.success,
-        action = function(text)
-            local success = tonumber(text:match('%[Success:%s*(%d+)'))
-            if not success then return end
-            local unjamming = state.get('is_jammed') or
-                (state.get('unjam_first') and state.get('phase') == 'unjam')
-            if unjamming and success > state.get('skip') then
-                state.set('skipped', true)
-            end
-        end,
-    },
-
     -- Unjam success
     {
         match = 'You feel an obstruction release',
@@ -232,6 +222,21 @@ M.reactions = {
         match = 'You hear a click as the tumbler mechanism releases',
         action = function()
             state.set('is_locked', false)
+        end,
+    },
+
+    -- Difficulty check: keep this after concrete success reactions because
+    -- Praetor executes only the first matching reaction for each line.
+    {
+        match = strings.success,
+        action = function(text)
+            local success = tonumber(text:match('%[Success:%s*(%d+)'))
+            if not success then return end
+            local unjamming = state.get('is_jammed') or
+                (state.get('unjam_first') and state.get('phase') == 'unjam')
+            if unjamming and success > state.get('skip') then
+                state.set('skipped', true)
+            end
         end,
     },
 
@@ -264,7 +269,7 @@ M.reactions = {
 
     -- Need lockpick
     {
-        match = {'You must be holding', "You don't see any"},
+        match = {'You must be holding', "You don't see any lockpick"},
         action = function() send('get my lockpick') end,
     },
 
@@ -272,12 +277,11 @@ M.reactions = {
     {
         match = 'Your hands must be empty',
         action = function()
-            local cont = state.get('cont')
             local pending
             if state.get('open') and not state.get('is_opened') then
-                pending = 'open ' .. cont
+                pending = 'open ' .. build_container_ref()
             elseif state.get('empty') and not state.get('is_emptied') then
-                pending = 'empty ' .. cont .. ' into ' .. state.get('empty')
+                pending = 'empty ' .. build_container_ref() .. ' into ' .. state.get('empty')
             end
             state.set('pending_action', pending)
             send('put lockpick in ' .. state.get('stow'))
@@ -311,7 +315,7 @@ M.reactions = {
         action = function()
             state.set('is_opened', true)
             if state.get('empty') then
-                send('empty ' .. state.get('cont') .. ' into ' .. state.get('empty'))
+                send('empty ' .. build_container_ref() .. ' into ' .. state.get('empty'))
             else
                 -- Get lockpick back (may already have it; handled by "already carrying")
                 send('get my lockpick')

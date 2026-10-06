@@ -9,6 +9,39 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+### Added
+
+- `lib_after` now supports `after_mode:<mode> [args...]`,
+  `after_do:<command...>`, and `after_ps:<script...>` completion handoffs.
+  The legacy `after:<mode>` spelling remains supported.
+- Chaining mode hints now summarize those forms as
+  `after_<mode|do|ps>:<mode|command|praetorscript>`.
+
+### Removed
+
+- Removed the unreliable experimental `priority_macro` mode.
+
+### Changed
+
+- `loot` now uses the rotating-stowage implementation previously exposed as
+  `loot_stow`. The old `loot` implementation and the `loot_stow` mode name
+  have been removed.
+
+### Fixed
+
+- Combat macros now pause after explicit no-target responses, avoid duplicate
+  recovery attacks when watchdog and unbusy events overlap, and recognize
+  wildcard kill strings consistently.
+- `locksmith` now handles unlock/unjam success before generic success rolls,
+  distinguishes missing lockpicks from exhausted container lists, and indexes
+  in-place containers when opening or emptying them.
+- `wire_to_picks` now runs its deferred failed-pick recovery command and
+  recognizes the correctly spelled already-carrying-tongs response.
+- `toss_sacks` waits for drag roundtime before trying to get the next item.
+- `lizard_macro nokill` no longer sends `nokill` as a movement direction.
+- `wagon` now rejects a non-alias invocation that omits its vendor.
+- Combat macros now increment `Crits` for critical hits in player attack lines.
+
 ## [0.1.1] - 2026-09-13
 
 ### Added

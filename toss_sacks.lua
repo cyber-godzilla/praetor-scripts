@@ -15,7 +15,7 @@ key:value token and may appear in any position:
 /mode toss_sacks down what:pouch           <-- Toss all pouches down
 /mode toss_sacks e from:travois try_drag:true
     <-- Empty a travois eastward, dragging it after each toss
-/mode toss_sacks east after:wagon          <-- Toss all sacks east, then run wagon
+/mode toss_sacks east after_mode:wagon     <-- Toss all sacks east, then run wagon
 ]]
 local strings = require('lib_strings')
 local after = require('lib_after')
@@ -98,19 +98,44 @@ M.reactions = {
             send('toss ' .. state.get('what') .. ' ' .. state.get('direction'))
         end,
     },
-    -- Toss landed: optionally drag the source container after it, then get
-    -- the next. The awaiting guard keeps a successful drag's own unbusy from
-    -- re-firing this — only the post-toss unbusy counts.
+    -- Toss landed: optionally drag the source container. Do not queue the next
+    -- get until the drag's roundtime has actually ended.
     {
         match = strings.unbusy,
         condition = function()
             return state.get('awaiting') == 'unbusy'
         end,
         action = function()
-            state.set('awaiting', 'take')
             if state.get('try_drag') then
+                state.set('awaiting', 'drag_unbusy')
                 send('drag ' .. state.get('from') .. ' ' .. state.get('direction'))
+                return
             end
+            state.set('awaiting', 'take')
+            send_get()
+        end,
+    },
+    -- A completed drag can emit intermediate text such as "You grab onto";
+    -- wait for the actual end-of-roundtime line before getting another item.
+    {
+        match = {'You are no longer busy.', 'You are no longer stunned.'},
+        condition = function()
+            return state.get('awaiting') == 'drag_unbusy'
+        end,
+        action = function()
+            state.set('awaiting', 'take')
+            send_get()
+        end,
+    },
+    -- A drag rejected without roundtime still needs to resume emptying.
+    {
+        match = {'is too heavy', "You can't drag", 'You cannot drag',
+            'You are unable to drag', "doesn't budge"},
+        condition = function()
+            return state.get('awaiting') == 'drag_unbusy'
+        end,
+        action = function()
+            state.set('awaiting', 'take')
             send_get()
         end,
     },

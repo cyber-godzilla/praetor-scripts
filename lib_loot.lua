@@ -7,6 +7,7 @@ L.loot = {
     metals = 'retalq|boison|alanti|sooty|iron',
     hand =
     'gauntlet|shield|hood|mask|boison|alanti|sooty|mace|dirk|blade|iron|bronze|armor|boot|belt|rawhide|legging|whip|helm|pouch|sack|pteryge|armband|collar',
+    villa = 'axe|armor|cuirass|boot|pter|pouch|sack|hood|mask',
 }
 
 function L.resolve(alias)

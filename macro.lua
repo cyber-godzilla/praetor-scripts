@@ -102,23 +102,17 @@ M.reactions = {
     -- Approached strings
     {
         match = combat.approached,
-        action = function()
-            state.set('approached', true)
-            combat.attack()
-        end,
+        action = function() combat.on_approached() end,
     },
     -- Already engaging: attack
     {
         match = 'You are already engaging',
-        action = function() combat.attack() end,
+        action = function() combat.on_approached() end,
     },
     -- No targets left
     {
         match = combat.no_targets,
-        action = function()
-            state.set('target_ko', false)
-            state.set('approached', false)
-        end,
+        action = function() combat.on_no_targets() end,
     },
     -- Wrong stance
     {

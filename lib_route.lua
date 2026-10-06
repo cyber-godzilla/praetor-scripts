@@ -5,7 +5,7 @@ Each command is either a wagon pull ('pull wagon ...') or an open ('open ...').
 Pulls wait for 'You stop pulling' followed by an unbusy line before advancing;
 opens advance immediately on 'You open' / 'is already open'. After the final
 command, on_done() runs — typically after.finish('<next_leg>') or a set_mode
-into a wagon sell that carries its own after:<mode>.
+into a wagon sell that carries its own completion handoff.
 
 Usage (one file per resumable leg):
     local route = require('lib_route')
@@ -16,8 +16,8 @@ Usage (one file per resumable leg):
     )
 
 Because each leg is its own mode, a broken run resumes by re-running that leg.
-on_start honors an after:<mode> arg, so legs that finish via after.finish can
-have their tail overridden (e.g. /mode <leg> after:disable).
+on_start honors lib_after completion suffixes, so legs that finish via
+after.finish can have their tail overridden (e.g. /mode <leg> after_mode:disable).
 ]]
 local strings = require('lib_strings')
 local after = require('lib_after')
@@ -57,8 +57,8 @@ end
 -- Optional `meta` carries the mode metadata the client reads for its command
 -- hint: { usage = '<args>', desc = 'one line', chains = true, hidden = true }.
 -- Route legs take no positional args, so usage is normally omitted. Set chains
--- only when on_done actually honors after:<mode> (i.e. it calls after.finish) —
--- a leg whose on_done hardcodes its own set_mode ignores after:, so it must not
+-- only when on_done actually honors completion handoffs (i.e. it calls
+-- after.finish) — a leg whose on_done hardcodes its own set_mode ignores them, so it must not
 -- advertise it. Set hidden on the interior legs of a circuit: they are started
 -- by the leg before them, not browsed for, so offering them in the hint is
 -- noise (they stay loaded and /mode <leg> still resumes a broken run).

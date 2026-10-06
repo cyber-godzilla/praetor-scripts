@@ -30,13 +30,17 @@ local function falx_attack()
     if state.get('falx_submode') then return end
     local cd = state.get('falx_cooldown') or 0
     if cd > 0 then
-        state.set('falx_cooldown', cd - 1)
-        combat.attack()
-        return
+        if combat.attack() then
+            state.set('falx_cooldown', cd - 1)
+            return true
+        end
+        return false
     end
-    state.set('falx_submode', 'stunSent')
-    send('st1')
-    state.set('last_command_time', time.now())
+    if combat.send_attack('st1') then
+        state.set('falx_submode', 'stunSent')
+        return true
+    end
+    return false
 end
 
 function M.on_start(args)
@@ -118,8 +122,9 @@ M.reactions = {
                 return
             end
             if state.get('falx_submode') == 'dragSent' then
-                state.set('falx_submode', 'ev')
-                send('ev')
+                if combat.send_attack('ev') then
+                    state.set('falx_submode', 'ev')
+                end
             end
         end,
     },
@@ -173,8 +178,9 @@ M.reactions = {
             if combat.try_kill() then return end
             local sub = state.get('falx_submode')
             if sub == 'stunHit' then
-                state.set('falx_submode', 'dragSent')
-                send('dr')
+                if combat.send_attack('dr') then
+                    state.set('falx_submode', 'dragSent')
+                end
                 return
             end
             if sub == 'stunSent' then
@@ -182,13 +188,14 @@ M.reactions = {
                     exit_submode()
                     falx_attack()
                 else
-                    send('st1')
+                    combat.send_attack('st1')
                 end
                 return
             end
             if sub == 'dragHit' then
-                state.set('falx_submode', 'ev')
-                send('ev')
+                if combat.send_attack('ev') then
+                    state.set('falx_submode', 'ev')
+                end
                 return
             end
             if sub == 'dragSent' then
@@ -197,7 +204,7 @@ M.reactions = {
                 return
             end
             if sub == 'ev' then
-                send('ev')
+                combat.send_attack('ev')
                 return
             end
             falx_attack()
@@ -232,22 +239,19 @@ M.reactions = {
     -- Approached
     {
         match = combat.approached,
-        action = function()
-            state.set('approached', true)
-            falx_attack()
-        end,
+        action = function() combat.on_approached(falx_attack) end,
     },
     -- Already engaging: attack
     {
         match = 'You are already engaging',
-        action = function() falx_attack() end,
+        action = function() combat.on_approached(falx_attack) end,
     },
     -- No targets
     {
         match = combat.no_targets,
         action = function()
-            state.set('target_ko', false)
-            state.set('approached', false)
+            if state.get('falx_submode') then exit_submode() end
+            combat.on_no_targets()
         end,
     },
     -- Wrong stance

@@ -20,7 +20,7 @@ Usage (one file per leg):
         { desc = '...', chains = true }
     )
 
-on_start honors after:<mode>. Failure lines are not watched: a step whose
+on_start honors lib_after completion suffixes. Failure lines are not watched: a step whose
 marker never arrives stalls the mode, and the run resumes by re-running
 the leg. Single-pace moves should be bare directions with an arrival
 match -- a one-room 'walk' command is not trusted to emit a stop line.

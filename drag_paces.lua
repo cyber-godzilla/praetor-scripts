@@ -6,7 +6,7 @@ not everything is a wagon — anything else has to be dragged room by room. This
 mode does that: it sends 'drag <item> <dir>' on every unbusy and counts arrivals
 until the current leg's pace count is met, then starts the next leg.
 
-    /mode drag_paces sled n:3 e:8 s w:2 after:wagon
+    /mode drag_paces sled n:3 e:8 s w:2 after_mode:wagon
 
 A bare direction is a single pace, so 's' and 's:1' mean the same thing. Legs
 run in the order given.

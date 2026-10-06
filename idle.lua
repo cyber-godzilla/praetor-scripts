@@ -1,5 +1,5 @@
 --[[
-Checks your fatigue level until back to 100%, then chains via after:<mode>.
+Checks your fatigue level until back to 100%, then runs its completion handoff.
 ]]
 local after = require('lib_after')
 

@@ -11,6 +11,7 @@ M.desc = 'Forge broken fashioning wires into working lockpicks'
 function M.on_start(args)
     log('Starting broken wire to pick processing')
     state.set('step', 'begin')
+    state.set('deferred_cmd', nil)
     send('get my mold')
 end
 
@@ -81,7 +82,7 @@ M.reactions = {
     },
     -- Already carrying tongs
     {
-        match = 'You are already carring a pair of iron tongs',
+        match = 'You are already carrying a pair of iron tongs',
         action = function()
             if state.get('step') == 'haveCrucibleCheckTongs' then
                 state.set('step', 'activelyHeating')
@@ -127,6 +128,12 @@ M.reactions = {
     {
         match = strings.unbusy,
         action = function()
+            local deferred = state.get('deferred_cmd')
+            if deferred then
+                state.set('deferred_cmd', nil)
+                send(deferred)
+                return
+            end
             local step = state.get('step')
             if step == 'activelyHeating' then
                 send('heat cruc over iron furnace')

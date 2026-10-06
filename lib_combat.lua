@@ -1,5 +1,7 @@
 local C = {}
 
+local WATCHDOG_OVERLAP_MS = 1000
+
 -- Could use input from other weapon users for weapon-specific kill strings
 C.kill = {
     'You slit ', 'and expires.', 'Your blade cuts cleanly through',
@@ -7,7 +9,10 @@ C.kill = {
 }
 
 -- Strings you would see when there's nobody left to attack
-C.no_targets = {"You can't *", 'It has left the area.', "You don't see any"}
+C.no_targets = {
+    "You can't *", 'It has left the area.', "You don't see any",
+    'You are not currently engaging anyone',
+}
 
 -- Strings that indicate you've been approached or have successfully approached.
 C.approached = {
@@ -74,10 +79,29 @@ function C.rotate(actions)
     end
 end
 
+-- Suppress reaction-driven attacks while the game has explicitly reported no
+-- target, and briefly after a watchdog kick. The latter prevents a stale
+-- unbusy from immediately duplicating the watchdog's recovery command.
+function C.can_attack()
+    if state.get('combat_no_targets') then return false end
+    local kicked = state.get('watchdog_kicked_at')
+    if not state.get('watchdog_firing') and kicked and time.since(kicked) < WATCHDOG_OVERLAP_MS then
+        return false
+    end
+    return true
+end
+
+function C.send_attack(command, delay)
+    if not C.can_attack() then return false end
+    send(command, delay)
+    state.set('last_command_time', time.now())
+    return true
+end
+
 function C.attack()
     local actions = state.get('actions_list')
-    if actions and #actions > 0 then send(actions[1]) end
-    state.set('last_command_time', time.now())
+    if actions and #actions > 0 then return C.send_attack(actions[1]) end
+    return false
 end
 
 -- Watchdog: kick attack_fn if no command sent in stall_ms.
@@ -88,11 +112,17 @@ function C.start_watchdog(attack_fn, stall_ms, check_ms)
     stall_ms = stall_ms or 8000
     check_ms = check_ms or 3000
     state.set('last_command_time', time.now())
+    state.set('combat_no_targets', false)
+    state.set('watchdog_kicked_at', nil)
+    state.set('watchdog_firing', false)
     local id = set_interval(function()
         local last = state.get('last_command_time') or 0
-        if time.since(last) > stall_ms then
+        if not state.get('combat_no_targets') and time.since(last) > stall_ms then
             log('combat watchdog: stall detected, kicking attack')
+            state.set('watchdog_kicked_at', time.now())
+            state.set('watchdog_firing', true)
             attack_fn()
+            state.set('watchdog_firing', false)
             -- Reset regardless so we wait a full stall_ms before firing again,
             -- even if attack_fn short-circuited without sending.
             state.set('last_command_time', time.now())
@@ -107,6 +137,7 @@ function C.stop_watchdog()
         clear_timer(id)
         state.set('watchdog_id', nil)
     end
+    state.set('watchdog_firing', false)
 end
 
 function C.on_kill()
@@ -121,22 +152,53 @@ end
 
 function C.try_kill()
     if state.get('do_kill') and state.get('target_ko') then
-        send('k1')
+        C.send_attack('k1')
         return true
     end
     return false
 end
 
 function C.approach()
+    state.set('combat_no_targets', false)
     state.set('approached', true)
     send('app1')
+    state.set('last_command_time', time.now())
 end
 
--- Check if text contains any pattern from a list (substring match).
+function C.on_approached(attack_fn)
+    state.set('combat_no_targets', false)
+    state.set('approached', true)
+    local attack = attack_fn or C.attack
+    attack()
+end
+
+function C.on_no_targets()
+    state.set('combat_no_targets', true)
+    state.set('target_ko', false)
+    state.set('approached', false)
+end
+
+-- Check if text contains any pattern from a list. Asterisks use the same
+-- ordered wildcard semantics as reaction patterns; everything else is a
+-- literal substring.
 function C.text_matches(text, patterns)
     if not text or not patterns then return false end
     for _, p in ipairs(patterns) do
-        if text:find(p, 1, true) then return true end
+        if not p:find('*', 1, true) then
+            if text:find(p, 1, true) then return true end
+        else
+            local position = 1
+            local matched = true
+            for part in p:gmatch('[^*]+') do
+                local first, last = text:find(part, position, true)
+                if not first then
+                    matched = false
+                    break
+                end
+                position = last + 1
+            end
+            if matched then return true end
+        end
     end
     return false
 end
@@ -147,6 +209,10 @@ end
 -- (defaults to C.attack if nil).
 -- Returns true if it handled the text (kill or KO), false for normal flow.
 function C.handle_success(text, attack_fn)
+    local player_attack = C.text_matches(text, C.attack_roll)
+    if player_attack and text and text:find('Critical Hit!', 1, true) then
+        metrics.inc('crits')
+    end
     -- Check for kill
     if C.text_matches(text, C.kill) then
         C.on_kill()
@@ -158,7 +224,7 @@ function C.handle_success(text, attack_fn)
         return true
     end
     -- Only rotate on player attack rolls, not stun/drag/ev/etc
-    if C.text_matches(text, C.attack_roll) then
+    if player_attack then
         local actions = state.get('actions_list')
         if actions then C.rotate(actions) end
     end
