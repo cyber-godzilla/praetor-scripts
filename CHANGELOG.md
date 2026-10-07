@@ -9,6 +9,15 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-07
+
+### Fixed
+
+- Combat no-target responses are anchored to the start of the line so NPC
+  dialogue containing phrases such as `You can't` cannot pause a running macro.
+
+## [0.1.2] - 2026-10-06
+
 ### Added
 
 - `lib_after` now supports `after_mode:<mode> [args...]`,

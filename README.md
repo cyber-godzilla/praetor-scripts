@@ -1,6 +1,9 @@
 # praetor-scripts
 Repository of Lua scripts for use with praetor
 
+The current scripts require Praetor v0.5.2 or newer. Reaction patterns may use
+`^` and `$` to anchor matches to the start or end of a game-text line.
+
 ## Expected Macros
 
 These scripts assume certain in-game macros are configured on your character. Combat modes will not work without them.

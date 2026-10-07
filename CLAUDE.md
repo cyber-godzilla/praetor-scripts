@@ -36,7 +36,7 @@ end
 
 M.reactions = {
     {
-        match = 'pattern',           -- string or table of strings, supports * and ? wildcards
+        match = 'pattern',           -- string/table; supports * and ? wildcards plus ^ and $ line anchors
         action = function(text) end, -- called when pattern matches game text
         condition = function() end,  -- optional: only fire if returns true
         delay = 500,                 -- optional: delay in ms before action

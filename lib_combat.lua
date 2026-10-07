@@ -10,8 +10,8 @@ C.kill = {
 
 -- Strings you would see when there's nobody left to attack
 C.no_targets = {
-    "You can't *", 'It has left the area.', "You don't see any",
-    'You are not currently engaging anyone',
+    "^You can't *", '^It has left the area.', "^You don't see any",
+    '^You are not currently engaging anyone',
 }
 
 -- Strings that indicate you've been approached or have successfully approached.
