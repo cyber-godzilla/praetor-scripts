@@ -31,6 +31,7 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `lock_job` -- Accepts a locksmithing job from an NPC. `/mode lock_job citizen|trader|sailor`
 - `wire_to_picks` -- Forges broken wires from lockpick fashioning into functional lockpicks.
 - `locksmith` -- Unjams and unlocks containers in bulk, with configurable source, disposition, open/empty behavior, and difficulty skipping. `/mode locksmith cont:chest from:wagon to:n open:true`
+- `unlock_all` -- Unlocks, opens, and drops containers from a source while moving irrecoverably difficult or repeatedly worsened jams to a reject container. A single-word source needs no quotes (`/mode unlock_all sack`); quote grouped sources (`/mode unlock_all "2 sack"`). Named options remain available: `/mode unlock_all from:"2 sack" reject:"worn large sack" targets:chest|coffer|trunk`
 
 **Herbalism:**
 - `herbmap` -- Surveys rooms for herb spawn rates, persisting per-room data, optionally gathering. `/mode herbmap boulder dir:n gather:rare`

@@ -77,6 +77,16 @@ function M.on_stop()
 end
 
 M.reactions = {
+    -- A failed command while stunned can look like a no-target response.
+    {
+        match = combat.stun_recovered,
+        action = function() combat.on_stun_recovered() end,
+    },
+    -- Restore combat posture before processing lower-priority reactions
+    {
+        match = combat.posture_ready,
+        action = function() combat.restore_posture() end,
+    },
     -- Stun roll detection: check if stun also HIT in the same text.
     -- The game may send stun roll + stun hit in the same line or separate lines.
     {

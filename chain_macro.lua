@@ -54,6 +54,16 @@ function M.on_stop()
 end
 
 M.reactions = {
+    -- A failed command while stunned can look like a no-target response.
+    {
+        match = combat.stun_recovered,
+        action = function() combat.on_stun_recovered() end,
+    },
+    -- Restore combat posture before processing lower-priority reactions
+    {
+        match = combat.posture_ready,
+        action = function() combat.restore_posture() end,
+    },
     -- Success roll: dispatch kill/KO/rotate via combat handler
     {
         match = strings.success,

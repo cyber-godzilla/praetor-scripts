@@ -30,6 +30,19 @@ C.arrival = {
 -- Generally, strings that indicate you have to use melee advance or a weapon move to adjust who is approached to you.
 C.not_close_enough = {'is not close enough'}
 
+-- The posture command is a Praetor input variable, so it must go through the
+-- typed-input pipeline rather than send(), which would transmit it literally.
+C.posture_ready = '^You are once again able to change combat postures.$'
+C.stun_recovered = 'You are no longer stunned.'
+
+function C.restore_posture()
+    praetor_script('${target_posture:normal}')
+end
+
+function C.on_stun_recovered()
+    state.set('combat_no_targets', false)
+end
+
 -- Strings that indicate you have to wield your weapon
 C.rewield = {
     'You fumble, losing your grip', 'You must be wielding your weapon in two hands',

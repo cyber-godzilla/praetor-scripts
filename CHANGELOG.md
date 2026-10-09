@@ -9,6 +9,23 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-09
+
+### Added
+
+- `unlock_all` processes chest, coffer, and trunk nouns individually; retries
+  ordinary unlock failures; and rejects difficulty-100 locks or jams that hit
+  their difficulty-dependent worsening limit. Source and reject references
+  accept quote-grouped values, including indexed references such as `"2 sack"`;
+  an unquoted single-word source remains valid as a positional argument.
+
+### Fixed
+
+- Combat macros clear no-target suppression when the player is no longer
+  stunned, allowing the following unbusy event or watchdog to resume attacks.
+- Combat macros restore the configured target posture when posture changes
+  become available again.
+
 ## [0.1.3] - 2026-10-07
 
 ### Fixed
