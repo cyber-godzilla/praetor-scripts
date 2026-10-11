@@ -181,7 +181,7 @@ M.reactions = {
     -- Not close enough: advance toward target
     {
         match = combat.not_close_enough,
-        action = function() send('adv1', 0) end,
+        action = function() combat.on_not_close_enough() end,
     },
 }
 

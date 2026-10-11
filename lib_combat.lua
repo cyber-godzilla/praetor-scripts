@@ -28,12 +28,16 @@ C.approached = {
 -- New enemy arrives, or you need to approach
 C.arrival = {
     'arrives', 'walks in', 'You are not close enough',
-    'oozes in', 'reanimates',
+    'oozes in', 'reanimates', 'charges in', 'charge in',
+    'rushes in', 'rush in', 'lopes in',
+    'steps out of the nearby shadows', 'flies in',
 }
 
 -- Separate from arrival: this means "too far to attack", should send adv1.
 -- Generally, strings that indicate you have to use melee advance or a weapon move to adjust who is approached to you.
-C.not_close_enough = {'is not close enough'}
+C.not_close_enough = {
+    'is not close enough', "but can't get close", "You'll have to retreat first",
+}
 
 -- The posture command is a Praetor input variable, so it must go through the
 -- typed-input pipeline rather than send(), which would transmit it literally.
@@ -65,6 +69,11 @@ end
 
 function C.on_stood_up()
     state.set('must_stand_pending_at', nil)
+end
+
+function C.on_not_close_enough()
+    send('adv1', 0)
+    state.set('last_command_time', time.now())
 end
 
 -- Strings that indicate you have to wield your weapon
@@ -108,6 +117,22 @@ C.attack_roll = {
     'You extend the chain and snap your hand forward',
     'You release your', 'You step forward with a quick jab',
     'You drop to one knee, flinging the spinning blade',
+
+    -- Archery
+    'You fire a', 'You quickly raise your', 'You take careful aim',
+
+    -- Brawling and cestus
+    'You punch at', 'You kick your leg out at', 'You try to kick',
+    'You stomp', 'You swing a cestus-covered fist',
+    'You send a heavy, underhand punch',
+    'Arm extended, you pivot backwards',
+    'With both arms extended, you spin in place',
+
+    -- Additional weapon families
+    'You deftly lunge at', 'You lead with your', 'You tentatively jab',
+    'Using both arms, you bring your', 'You make a wide horizontal',
+    'You slide your lower hand', 'You plant your feet into the ground',
+    'Flicking your',
 
     -- Spears
     'Lifting it in one hand', 'With a quick snapping motion',
@@ -310,8 +335,8 @@ end
 -- reaction, and only the first matching reaction runs.
 -- attack_fn is an optional function to call for anti-idle recovery
 -- (defaults to C.attack if nil).
--- Returns true if it handled the text (kill, KO, or must stand), false for
--- normal flow.
+-- Returns true if it handled the text (kill, KO, must stand, or distance
+-- recovery), false for normal flow.
 function C.handle_success(text, attack_fn)
     local player_attack = C.text_matches(text, C.attack_roll)
     if player_attack and text and text:find('Critical Hit!', 1, true) then
@@ -322,6 +347,7 @@ function C.handle_success(text, attack_fn)
     local killed = C.text_matches(text, C.kill)
     local knocked_down = C.text_matches(text, strings.must_stand)
     local knocked_out = text and text:find('falls unconscious', 1, true)
+    local not_close_enough = C.text_matches(text, C.not_close_enough)
     if killed then
         C.on_kill()
     end
@@ -330,6 +356,10 @@ function C.handle_success(text, attack_fn)
     end
     if knocked_down then
         C.on_must_stand()
+        return true
+    end
+    if not_close_enough then
+        C.on_not_close_enough()
         return true
     end
     if killed or knocked_out then

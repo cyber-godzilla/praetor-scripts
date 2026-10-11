@@ -9,6 +9,15 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-11
+
+### Fixed
+
+- Combat macros recognize additional prone, distance, arrival, archery,
+  brawling, cestus, and weapon-attack messages.
+- Distance failures embedded in `[Success:]` lines now advance before normal
+  success processing can swallow them.
+
 ## [0.2.3] - 2026-10-11
 
 ### Fixed

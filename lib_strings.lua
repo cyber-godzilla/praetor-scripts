@@ -15,6 +15,7 @@ S.must_stand = {
     'You go to bended knee as a strike to the foot causes you to trip',
     'you crumple down in sheer pain', 'sends you toppling backward',
     'You tumble towards', 'forcing you to your knees',
+    'You have disabled fighting while prone', 'You fumble, falling',
 }
 
 return S
