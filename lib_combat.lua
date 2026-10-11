@@ -6,6 +6,7 @@ local WATCHDOG_OVERLAP_MS = 1000
 C.kill = {
     'You slit ', 'and expires.', 'Your blade cuts cleanly through',
     'in the head repeatedly', 'A *armband* falls from *',
+    'With massive force, you bring down your',
 }
 
 -- Strings you would see when there's nobody left to attack
@@ -84,6 +85,68 @@ C.attack_roll = {
     'You extend the chain and snap your hand forward',
     'You release your', 'You step forward with a quick jab',
     'You drop to one knee, flinging the spinning blade',
+
+    -- Spears
+    'Lifting it in one hand', 'With a quick snapping motion',
+    'you swing the butt around', 'You twist your wrists and sweep',
+    'Expertly darting the blade', 'You slash horizontally',
+    'You make a quick stabbing', 'You slide your grip',
+    'Sliding your front leg back',
+    'Stepping forward aggressively', 'You lean forward, feigning a thrust',
+
+    -- Pardelian One-Handed Swords
+    'Targeting the flank, you jab at',
+    'Ducking your entire body weight behind your shield',
+    'Tilting your * shield on a vertical axis',
+    'Flipping the tip of your', 'Casting your * shield towards one side',
+    'You make a wide, heavy-handed, slashing attack',
+    'Raising your * shield above your head',
+    'Stepping forward with the lead foot', 'Making a wide, false slash',
+    'You snap out your arm',
+
+    -- Two-Handed Crushing
+    'You surge forward, driving your',
+    'In a vicious lateral swing, you aim your',
+    'You plant your feet firmly, draw back your',
+    'With deliberate force, you raise your',
+    'Spinning swiftly, you smash your',
+
+    -- Falcata and Falx
+    'You weave behind', 'You dig your blade into', 'You lunge at',
+    'You duck under', 'You dive forward and roll over your shoulder',
+    'You drop your weight, slamming',
+
+    -- Dual Daggers
+    'You dart forward, driving a rapid jab',
+    'You drop your weight into a vicious downward stab',
+    'You whip your knife down', 'You step in and drive your daggers',
+    'From your reverse grip, you drive both points',
+    'You dart in and out with blinding speed', 'You drop low and slash at',
+    'In a blinding staccato rhythm, you drive', 'You hook the guard of',
+    'You stutter-step into a false thrust',
+
+    -- Whips
+    'You curl your wrist into a tight loop',
+
+    -- Hoplite Combat
+    'With a deft twist, you drive your', 'Slamming your shield into',
+    'Using your shield to balance', 'Rising from a low crouch',
+    'You push', 'You sling your', 'With a bold lunge, you stab forward',
+    'You step to the side suddenly', 'Reversing your grip, you swing your',
+    'Crouching low, you swing your', 'You lunge forward',
+    'You lean forward, feigning a stab',
+
+    -- Dual Axes: hit and miss variants observed in game logs. Several moves
+    -- use a different opening sentence when they miss, so both are required
+    -- for the attack rotation to advance reliably.
+    'You pivot and chop with your', 'You pivot smoothly on your back foot',
+    'Stepping inside * guard, you slam the blunt poll of your',
+    'You pivot sharply on your lead foot', 'You pivot and jab the horn of your',
+    'You step in and swing your', 'You drive the heavy poll of your',
+    'You drive the poll of your', 'You pivot smoothly on your heels',
+    'Shifting your footing quickly and dropping your guard, you snap your',
+    'Stepping inside * guard, you deliver a rapid, alternating sequence',
+    'You sweep your',
 }
 
 function C.rotate(actions)

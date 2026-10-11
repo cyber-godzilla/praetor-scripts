@@ -9,7 +9,8 @@ S.unbusy = {
 
 S.must_stand = {
     'Several trainers drag you back to the start.', 'You must be standing',
-    "You do not meet that stance's requirements",
+    "You do not meet that stance's requirements", 'knocking you down',
+    'knocks you to the ground', 'you topple to the ground',
 }
 
 return S
