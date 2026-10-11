@@ -1,6 +1,9 @@
+local strings = require('lib_strings')
+
 local C = {}
 
 local WATCHDOG_OVERLAP_MS = 1000
+local MUST_STAND_RETRY_MS = 30000
 
 -- Could use input from other weapon users for weapon-specific kill strings
 C.kill = {
@@ -35,6 +38,7 @@ C.not_close_enough = {'is not close enough'}
 -- typed-input pipeline rather than send(), which would transmit it literally.
 C.posture_ready = '^You are once again able to change combat postures.$'
 C.stun_recovered = 'You are no longer stunned.'
+C.stood_up = {'^You stand up.$', '^You are already standing.$'}
 
 function C.restore_posture()
     praetor_script('${target_posture:normal}')
@@ -42,6 +46,24 @@ end
 
 function C.on_stun_recovered()
     state.set('combat_no_targets', false)
+    local knocked_down_at = state.get('must_stand_pending_at')
+    if not knocked_down_at then return end
+    if time.since(knocked_down_at) <= MUST_STAND_RETRY_MS then
+        send('stand')
+        state.set('last_command_time', time.now())
+    else
+        state.set('must_stand_pending_at', nil)
+    end
+end
+
+function C.on_must_stand()
+    state.set('must_stand_pending_at', time.now())
+    send('stand')
+    state.set('last_command_time', time.now())
+end
+
+function C.on_stood_up()
+    state.set('must_stand_pending_at', nil)
 end
 
 -- Strings that indicate you have to wield your weapon
@@ -189,6 +211,7 @@ function C.start_watchdog(attack_fn, stall_ms, check_ms)
     check_ms = check_ms or 3000
     state.set('last_command_time', time.now())
     state.set('combat_no_targets', false)
+    state.set('must_stand_pending_at', nil)
     state.set('watchdog_kicked_at', nil)
     state.set('watchdog_firing', false)
     local id = set_interval(function()
@@ -213,6 +236,7 @@ function C.stop_watchdog()
         clear_timer(id)
         state.set('watchdog_id', nil)
     end
+    state.set('must_stand_pending_at', nil)
     state.set('watchdog_firing', false)
 end
 
@@ -279,26 +303,38 @@ function C.text_matches(text, patterns)
     return false
 end
 
--- Handle [Success:] in macro modes. The game sends kill, KO, and attack
--- results all as [Success:] lines, so this one handler must dispatch them.
+-- Handle [Success:] in macro modes. The game sends kill, KO, knockdown, and
+-- attack results all as [Success:] lines, so this one handler must dispatch
+-- them. In particular, success reactions run before each mode's must_stand
+-- reaction, and only the first matching reaction runs.
 -- attack_fn is an optional function to call for anti-idle recovery
 -- (defaults to C.attack if nil).
--- Returns true if it handled the text (kill or KO), false for normal flow.
+-- Returns true if it handled the text (kill, KO, or must stand), false for
+-- normal flow.
 function C.handle_success(text, attack_fn)
     local player_attack = C.text_matches(text, C.attack_roll)
     if player_attack and text and text:find('Critical Hit!', 1, true) then
         metrics.inc('crits')
     end
-    -- Check for kill
-    if C.text_matches(text, C.kill) then
+
+    -- Preserve combat state even when a compound line also requires standing.
+    local killed = C.text_matches(text, C.kill)
+    local knocked_down = C.text_matches(text, strings.must_stand)
+    local knocked_out = text and text:find('falls unconscious', 1, true)
+    if killed then
         C.on_kill()
-        return true
     end
-    -- Check for KO
-    if text and text:find('falls unconscious', 1, true) then
+    if knocked_out then
         C.on_ko()
+    end
+    if knocked_down then
+        C.on_must_stand()
         return true
     end
+    if killed or knocked_out then
+        return true
+    end
+
     -- Only rotate on player attack rolls, not stun/drag/ev/etc
     if player_attack then
         local actions = state.get('actions_list')

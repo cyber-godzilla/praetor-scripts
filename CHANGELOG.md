@@ -9,6 +9,29 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-11
+
+### Fixed
+
+- Combat macros recognize six additional player knockdown messages, including
+  knockdowns embedded in `[Success:]` lines that otherwise win reaction
+  dispatch.
+- Combat macros remember recent knockdowns and prioritize retrying `stand` when
+  stun ends, while clearing the retry after standing or changing modes.
+
+## [0.2.1] - 2026-10-11
+
+### Added
+
+- Combat rotation recognizes attack results from spears, Pardelian one-handed
+  swords, two-handed crushing weapons, falcata and falx, dual daggers, whips,
+  Hoplite combat, and dual axes.
+
+### Fixed
+
+- Combat macros recognize three additional player knockdown messages and one
+  additional kill message.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

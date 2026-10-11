@@ -82,6 +82,11 @@ M.reactions = {
         match = combat.stun_recovered,
         action = function() combat.on_stun_recovered() end,
     },
+    -- Clear any pending retry once standing succeeds
+    {
+        match = combat.stood_up,
+        action = function() combat.on_stood_up() end,
+    },
     -- Restore combat posture before processing lower-priority reactions
     {
         match = combat.posture_ready,
@@ -128,7 +133,7 @@ M.reactions = {
                 -- Fall through to must_stand handler on next line won't work
                 -- (first-match-wins), so handle it here directly.
                 if state.get('falx_submode') then exit_submode() end
-                send('stand')
+                combat.on_must_stand()
                 return
             end
             if state.get('falx_submode') == 'dragSent' then
@@ -171,7 +176,7 @@ M.reactions = {
         match = strings.must_stand,
         action = function()
             if state.get('falx_submode') then exit_submode() end
-            send('stand')
+            combat.on_must_stand()
         end,
     },
     -- Unbusy: state machine transitions

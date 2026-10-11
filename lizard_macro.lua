@@ -65,6 +65,11 @@ M.reactions = {
         match = combat.stun_recovered,
         action = function() combat.on_stun_recovered() end,
     },
+    -- Clear any pending retry once standing succeeds
+    {
+        match = combat.stood_up,
+        action = function() combat.on_stood_up() end,
+    },
     -- Restore combat posture before processing lower-priority reactions
     {
         match = combat.posture_ready,
@@ -81,7 +86,7 @@ M.reactions = {
     -- Must stand
     {
         match = strings.must_stand,
-        action = function() send('stand') end,
+        action = function() combat.on_must_stand() end,
     },
     -- Unbusy
     {

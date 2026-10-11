@@ -77,7 +77,8 @@ set_timeout(fn, ms) / set_interval(fn, ms) / clear_timer(id)
 ## Macro Mode Architecture
 
 All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common pattern:
-- `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, and rotation in one place
+- `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, knockdowns, and rotation in one place
+- Knockdowns set a pending stand retry; if the first `stand` is rejected while stunned, the high-priority stun-recovery reaction retries it for up to 30 seconds
 - Attack rotation only happens on player attack rolls (50+ patterns in `strings.attack_roll`), not stun/drag/ev successes
 - Anti-idle recovery: if 5+ seconds since last command, next `[Success:]` triggers an attack
 - Combat macros run indefinitely and have no completion point, so they do not chain (except `lizard_macro`, whose action loop is target-driven but which ends when fatigue runs out, chaining to `idle` by default)
