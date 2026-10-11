@@ -9,6 +9,12 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-11
+
+### Fixed
+
+- Combat macros recognize spear thrusts through an opponent's heart as kills.
+
 ## [0.2.2] - 2026-10-11
 
 ### Fixed

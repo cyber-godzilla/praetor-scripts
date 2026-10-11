@@ -10,6 +10,7 @@ C.kill = {
     'You slit ', 'and expires.', 'Your blade cuts cleanly through',
     'in the head repeatedly', 'A *armband* falls from *',
     'With massive force, you bring down your',
+    'You thrust your * through * heart.',
 }
 
 -- Strings you would see when there's nobody left to attack
