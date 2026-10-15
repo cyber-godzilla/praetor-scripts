@@ -33,6 +33,7 @@ function M.on_start(args)
 
     log('Macro mode started')
     combat.start_watchdog()
+    combat.attack()
 end
 
 function M.on_stop()
