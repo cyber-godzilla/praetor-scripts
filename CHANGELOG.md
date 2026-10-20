@@ -9,6 +9,17 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+### Fixed
+
+- Combat macros debounce enemy movement so it wakes a stopped rotation only
+  once, and ignore knockdowns that already return the player to their feet.
+- A time-of-day response no longer pauses combat as though the target vanished.
+- Falx eviscerate no longer advances the normal attack rotation, and another
+  player's crushing-weapon knockout message no longer triggers falx ankle drag.
+- Falx combat now recognizes standalone critical-hit stun notifications and
+  enters the ankle-drag/eviscerate sequence.
+- Combat rotation recognizes two additional dual-axes miss messages.
+
 ## [0.2.4] - 2026-10-11
 
 ### Fixed

@@ -19,11 +19,22 @@ C.no_targets = {
     '^You are not currently engaging anyone',
 }
 
+-- Some non-combat commands share the broad "You can't ..." prefix used by
+-- failed attacks against corpses and missing targets. These responses must not
+-- pause combat or disable the watchdog.
+C.no_target_exclusions = {
+    "You can't tell what time of day it is from here.",
+}
+
 -- Strings that indicate you've been approached or have successfully approached.
 C.approached = {
     'You stop next to', 'stops next to you', 'Gripping your * falx hard, you pull',
-    'moves towards you', 'You are already engaged', 'You advance toward',
+    'You are already engaged', 'You advance toward',
 }
+
+-- Enemy movement can wake a stopped rotation, but must not send another attack
+-- for every duplicate movement line while combat is already active.
+C.enemy_approached = 'moves towards you'
 
 -- New enemy arrives, or you need to approach
 C.arrival = {
@@ -42,11 +53,27 @@ C.not_close_enough = {
 -- The posture command is a Praetor input variable, so it must go through the
 -- typed-input pipeline rather than send(), which would transmit it literally.
 C.posture_ready = '^You are once again able to change combat postures.$'
+C.posture_restored = {
+    '^Combat mode changed to *',
+    '^You are already in a * stance!$',
+}
 C.stun_recovered = 'You are no longer stunned.'
 C.stood_up = {'^You stand up.$', '^You are already standing.$'}
 
 function C.restore_posture()
+    state.set('posture_restore_pending', true)
     praetor_script('${target_posture:normal}')
+    state.set('last_command_time', time.now())
+end
+
+function C.on_posture_restored()
+    state.set('posture_restore_pending', false)
+end
+
+function C.retry_posture()
+    if not state.get('posture_restore_pending') then return false end
+    C.restore_posture()
+    return true
 end
 
 function C.on_stun_recovered()
@@ -61,10 +88,24 @@ function C.on_stun_recovered()
     end
 end
 
-function C.on_must_stand()
+local SELF_RECOVERED_TO_FEET = {
+    'onto your feet', 'back to your feet', 'back up to your feet',
+}
+
+function C.requires_stand(text)
+    if not text then return true end
+    for _, phrase in ipairs(SELF_RECOVERED_TO_FEET) do
+        if text:find(phrase, 1, true) then return false end
+    end
+    return C.text_matches(text, strings.must_stand)
+end
+
+function C.on_must_stand(text)
+    if text and not C.requires_stand(text) then return false end
     state.set('must_stand_pending_at', time.now())
     send('stand')
     state.set('last_command_time', time.now())
+    return true
 end
 
 function C.on_stood_up()
@@ -80,6 +121,7 @@ end
 C.rewield = {
     'You fumble, losing your grip', 'You must be wielding your weapon in two hands',
     "You can't do that right now", 'You must be wielding a weapon to attack',
+    'You must be actively wielding a weapon in each hand to execute this maneuver.',
 }
 
 -- Player attack roll strings: only these indicate a real attack was made.
@@ -194,7 +236,8 @@ C.attack_roll = {
     'You drive the poll of your', 'You pivot smoothly on your heels',
     'Shifting your footing quickly and dropping your guard, you snap your',
     'Stepping inside * guard, you deliver a rapid, alternating sequence',
-    'You sweep your',
+    'You sweep your', 'You bring both your',
+    'You step forward to strike',
 }
 
 function C.rotate(actions)
@@ -207,6 +250,7 @@ end
 -- target, and briefly after a watchdog kick. The latter prevents a stale
 -- unbusy from immediately duplicating the watchdog's recovery command.
 function C.can_attack()
+    if state.get('posture_restore_pending') then return false end
     if state.get('combat_no_targets') then return false end
     local kicked = state.get('watchdog_kicked_at')
     if not state.get('watchdog_firing') and kicked and time.since(kicked) < WATCHDOG_OVERLAP_MS then
@@ -238,6 +282,7 @@ function C.start_watchdog(attack_fn, stall_ms, check_ms)
     state.set('last_command_time', time.now())
     state.set('combat_no_targets', false)
     state.set('must_stand_pending_at', nil)
+    state.set('posture_restore_pending', false)
     state.set('watchdog_kicked_at', nil)
     state.set('watchdog_firing', false)
     local id = set_interval(function()
@@ -263,6 +308,7 @@ function C.stop_watchdog()
         state.set('watchdog_id', nil)
     end
     state.set('must_stand_pending_at', nil)
+    state.set('posture_restore_pending', false)
     state.set('watchdog_firing', false)
 end
 
@@ -298,10 +344,24 @@ function C.on_approached(attack_fn)
     attack()
 end
 
-function C.on_no_targets()
+function C.on_enemy_approached(attack_fn)
+    if state.get('approached') and not state.get('combat_no_targets') then
+        return false
+    end
+    C.on_approached(attack_fn)
+    return true
+end
+
+function C.on_no_targets(text)
+    if text then
+        for _, excluded in ipairs(C.no_target_exclusions) do
+            if text == excluded then return false end
+        end
+    end
     state.set('combat_no_targets', true)
     state.set('target_ko', false)
     state.set('approached', false)
+    return true
 end
 
 -- Check if text contains any pattern from a list. Asterisks use the same
@@ -335,9 +395,12 @@ end
 -- reaction, and only the first matching reaction runs.
 -- attack_fn is an optional function to call for anti-idle recovery
 -- (defaults to C.attack if nil).
+-- rotate_player_attack can be false for weapon-specific submodes whose attack
+-- text overlaps the normal rotation (for example, falx eviscerate).
 -- Returns true if it handled the text (kill, KO, must stand, or distance
 -- recovery), false for normal flow.
-function C.handle_success(text, attack_fn)
+function C.handle_success(text, attack_fn, rotate_player_attack)
+    if rotate_player_attack == nil then rotate_player_attack = true end
     local player_attack = C.text_matches(text, C.attack_roll)
     if player_attack and text and text:find('Critical Hit!', 1, true) then
         metrics.inc('crits')
@@ -345,7 +408,7 @@ function C.handle_success(text, attack_fn)
 
     -- Preserve combat state even when a compound line also requires standing.
     local killed = C.text_matches(text, C.kill)
-    local knocked_down = C.text_matches(text, strings.must_stand)
+    local knocked_down = C.requires_stand(text)
     local knocked_out = text and text:find('falls unconscious', 1, true)
     local not_close_enough = C.text_matches(text, C.not_close_enough)
     if killed then
@@ -355,7 +418,7 @@ function C.handle_success(text, attack_fn)
         C.on_ko()
     end
     if knocked_down then
-        C.on_must_stand()
+        C.on_must_stand(text)
         return true
     end
     if not_close_enough then
@@ -367,7 +430,7 @@ function C.handle_success(text, attack_fn)
     end
 
     -- Only rotate on player attack rolls, not stun/drag/ev/etc
-    if player_attack then
+    if player_attack and rotate_player_attack then
         local actions = state.get('actions_list')
         if actions then C.rotate(actions) end
     end

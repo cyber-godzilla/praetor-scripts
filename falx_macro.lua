@@ -18,12 +18,14 @@ local M = {}
 M.usage = '[nokill]'
 M.desc = 'Falx rotation with periodic stun, ankle drag, and eviscerate'
 
+local CRIT_STUN_CONFIRM_MS = 2000
 local default_actions = {'at1', 'at2', 'at3', 'at4', 'at5', 'at6'}
 
 local function exit_submode()
     state.set('falx_submode', nil)
     state.set('falx_cooldown', 6)
     state.set('falx_stun_rolled', false)
+    state.set('falx_target_stunned_at', nil)
 end
 
 local function falx_attack()
@@ -50,6 +52,7 @@ function M.on_start(args)
     state.set('falx_submode', nil)
     state.set('falx_cooldown', 0)
     state.set('falx_stun_rolled', false)
+    state.set('falx_target_stunned_at', nil)
 
     local actions = {}
     for _, v in ipairs(default_actions) do actions[#actions + 1] = v end
@@ -91,6 +94,24 @@ M.reactions = {
     {
         match = combat.posture_ready,
         action = function() combat.restore_posture() end,
+    },
+    {
+        match = combat.posture_restored,
+        action = function() combat.on_posture_restored() end,
+    },
+    -- Critical hits announce their stun on a separate line immediately before
+    -- the player attack result. Confirm it on that result so an unrelated
+    -- enemy's status line cannot redirect the falx sequence.
+    {
+        match = falx_strings.falx_target_stunned,
+        action = function()
+            local sub = state.get('falx_submode')
+            if sub == 'stunSent' then
+                state.set('falx_submode', 'stunHit')
+            elseif sub == nil then
+                state.set('falx_target_stunned_at', time.now())
+            end
+        end,
     },
     -- Stun roll detection: check if stun also HIT in the same text.
     -- The game may send stun roll + stun hit in the same line or separate lines.
@@ -148,7 +169,16 @@ M.reactions = {
     {
         match = strings.success,
         action = function(text)
-            if combat.handle_success(text, falx_attack) then
+            local rotate = state.get('falx_submode') == nil
+            local player_attack = combat.text_matches(text, combat.attack_roll)
+            local target_stunned_at = state.get('falx_target_stunned_at')
+            if rotate and player_attack and target_stunned_at then
+                state.set('falx_target_stunned_at', nil)
+                if time.since(target_stunned_at) <= CRIT_STUN_CONFIRM_MS then
+                    state.set('falx_submode', 'stunHit')
+                end
+            end
+            if combat.handle_success(text, falx_attack, rotate) then
                 if state.get('falx_submode') then exit_submode() end
                 return
             end
@@ -174,15 +204,17 @@ M.reactions = {
     -- Must stand
     {
         match = strings.must_stand,
-        action = function()
+        action = function(text)
+            if not combat.requires_stand(text) then return end
             if state.get('falx_submode') then exit_submode() end
-            combat.on_must_stand()
+            combat.on_must_stand(text)
         end,
     },
     -- Unbusy: state machine transitions
     {
         match = strings.unbusy,
         action = function()
+            if combat.retry_posture() then return end
             metrics.inc('actions')
             local deferred = state.get('deferred_cmd')
             if deferred then
@@ -256,6 +288,11 @@ M.reactions = {
         match = combat.approached,
         action = function() combat.on_approached(falx_attack) end,
     },
+    -- Enemy movement only restarts a stopped rotation; duplicates are ignored.
+    {
+        match = combat.enemy_approached,
+        action = function() combat.on_enemy_approached(falx_attack) end,
+    },
     -- Already engaging: attack
     {
         match = 'You are already engaging',
@@ -264,9 +301,10 @@ M.reactions = {
     -- No targets
     {
         match = combat.no_targets,
-        action = function()
+        action = function(text)
+            if not combat.on_no_targets(text) then return end
+            state.set('falx_target_stunned_at', nil)
             if state.get('falx_submode') then exit_submode() end
-            combat.on_no_targets()
         end,
     },
     -- Wrong stance

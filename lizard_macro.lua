@@ -75,6 +75,10 @@ M.reactions = {
         match = combat.posture_ready,
         action = function() combat.restore_posture() end,
     },
+    {
+        match = combat.posture_restored,
+        action = function() combat.on_posture_restored() end,
+    },
     -- Success roll: dispatch kill/KO/rotate via combat handler
     {
         match = strings.success,
@@ -86,12 +90,13 @@ M.reactions = {
     -- Must stand
     {
         match = strings.must_stand,
-        action = function() combat.on_must_stand() end,
+        action = function(text) combat.on_must_stand(text) end,
     },
     -- Unbusy
     {
         match = strings.unbusy,
         action = function()
+            if combat.retry_posture() then return end
             metrics.inc('actions')
             if state.get('moving') then
                 state.set('moving', false)
@@ -143,6 +148,11 @@ M.reactions = {
         match = combat.approached,
         action = function() combat.on_approached() end,
     },
+    -- Enemy movement only restarts a stopped rotation; duplicates are ignored.
+    {
+        match = combat.enemy_approached,
+        action = function() combat.on_enemy_approached() end,
+    },
     -- Already engaging: attack
     {
         match = 'You are already engaging',
@@ -171,7 +181,7 @@ M.reactions = {
     -- No targets
     {
         match = combat.no_targets,
-        action = function() combat.on_no_targets() end,
+        action = function(text) combat.on_no_targets(text) end,
     },
     -- Wrong stance
     {
