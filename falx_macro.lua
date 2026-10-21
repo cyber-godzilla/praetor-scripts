@@ -65,6 +65,7 @@ function M.on_start(args)
     metrics.track('kills', 'Kills')
     metrics.track('crits', 'Crits')
     metrics.track('actions', 'Actions')
+    state.persist('armor_absorb')
 
     log('Falx macro mode started')
     -- Watchdog clears stuck submode before retrying; otherwise falx_attack
@@ -118,6 +119,7 @@ M.reactions = {
     {
         match = falx_strings.falx_stun_roll,
         action = function(text)
+            combat.track_player_action(text)
             if state.get('falx_submode') == 'stunSent' then
                 if combat.text_matches(text, falx_strings.falx_stun) then
                     state.set('falx_submode', 'stunHit')
@@ -139,7 +141,8 @@ M.reactions = {
     -- Fall detection for drag
     {
         match = falx_strings.falx_fall,
-        action = function()
+        action = function(text)
+            combat.track_player_action(text)
             if state.get('falx_submode') == 'dragSent' then
                 state.set('falx_submode', 'dragHit')
             end
@@ -170,7 +173,7 @@ M.reactions = {
         match = strings.success,
         action = function(text)
             local rotate = state.get('falx_submode') == nil
-            local player_attack = combat.text_matches(text, combat.attack_roll)
+            local player_attack = combat.is_player_attack(text)
             local target_stunned_at = state.get('falx_target_stunned_at')
             if rotate and player_attack and target_stunned_at then
                 state.set('falx_target_stunned_at', nil)
@@ -182,7 +185,6 @@ M.reactions = {
                 if state.get('falx_submode') then exit_submode() end
                 return
             end
-            metrics.inc('actions')
         end,
     },
     -- Evict exit conditions (stands up, prone target, launched)
@@ -215,7 +217,6 @@ M.reactions = {
         match = strings.unbusy,
         action = function()
             if combat.retry_posture() then return end
-            metrics.inc('actions')
             local deferred = state.get('deferred_cmd')
             if deferred then
                 send(deferred)
@@ -316,6 +317,11 @@ M.reactions = {
     {
         match = combat.not_close_enough,
         action = function() combat.on_not_close_enough() end,
+    },
+    -- Fallback for absorption messages that do not carry a success prefix.
+    {
+        match = strings.armor_absorb,
+        action = function(text) combat.track_absorb(text) end,
     },
 }
 

@@ -9,8 +9,17 @@ new arguments, patch for fixes.
 
 ## [Unreleased]
 
+### Added
+
+- All combat macros now persist complete armor-absorption counts by armor
+  description, including every absorption in multi-strike results.
+
 ### Fixed
 
+- Macro metrics now count one action per confirmed player combat maneuver,
+  count every critical-hit marker in multi-target results, and ignore enemy
+  success rolls and unbusy events. Falx stun/drag results and another dual-axes
+  attack description are included in that accounting.
 - Combat macros debounce enemy movement so it wakes a stopped rotation only
   once, and ignore knockdowns that already return the player to their feet.
 - A time-of-day response no longer pauses combat as though the target vanished.

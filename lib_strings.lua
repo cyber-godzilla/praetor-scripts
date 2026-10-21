@@ -2,6 +2,10 @@ local S = {}
 
 S.success = '[Success:'
 
+S.armor_absorb = {
+    'absorbs the impact of the blow', 'absorb the impact of the blow',
+}
+
 S.unbusy = {
     'You are no longer busy.', 'You are no longer stunned.', 'You wield',
     'You grab onto', 'You are already wielding', 'You successfully train to rank',

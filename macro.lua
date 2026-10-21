@@ -30,6 +30,7 @@ function M.on_start(args)
     metrics.track('kills', 'Kills')
     metrics.track('crits', 'Crits')
     metrics.track('actions', 'Actions')
+    state.persist('armor_absorb')
 
     log('Macro mode started')
     combat.start_watchdog()
@@ -64,8 +65,7 @@ M.reactions = {
     {
         match = strings.success,
         action = function(text)
-            if combat.handle_success(text) then return end
-            metrics.inc('actions')
+            combat.handle_success(text)
         end,
     },
     -- Must stand
@@ -78,7 +78,6 @@ M.reactions = {
         match = strings.unbusy,
         action = function()
             if combat.retry_posture() then return end
-            metrics.inc('actions')
             local deferred = state.get('deferred_cmd')
             if deferred then
                 send(deferred)
@@ -149,6 +148,11 @@ M.reactions = {
     {
         match = combat.not_close_enough,
         action = function() combat.on_not_close_enough() end,
+    },
+    -- Fallback for absorption messages that do not carry a success prefix.
+    {
+        match = strings.armor_absorb,
+        action = function(text) combat.track_absorb(text) end,
     },
 }
 

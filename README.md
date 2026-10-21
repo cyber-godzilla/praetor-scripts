@@ -16,6 +16,10 @@ These scripts assume certain in-game macros are configured on your character. Co
 - `r` -- Rewield weapon ('wield <weapon>')
 - `doStance` -- Uses your weapon's stance move (Should only be necessary before you perfect stance)
 
+While any combat mode is active, complete armor absorptions are accumulated in
+the persistent `armor_absorb` data map, keyed by the armor description shown in
+the combat result. View or export it from Praetor's Persistent Data screen.
+
 **Falx macro only:**
 - `st1` -- Stun first target ('bash 1 <target> head')
 - `dr` -- Drag target ('ankle <target>')

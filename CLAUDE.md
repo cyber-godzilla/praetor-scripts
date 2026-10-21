@@ -64,9 +64,12 @@ log(message)
 random_item(table)
 time.now() / time.since(ms)
 state.get(key) / state.set(key, val) -- per-mode state
-state.persist(key)                   -- mark key for disk persistence
+state.persist(key)                   -- accumulated long-term data only
+state.unpersist(key)                 -- delete a legacy persistent value
 state.display(key, label)            -- declare state item for sidebar display
 state.mode                           -- read-only: current mode name
+variables.get(name)                  -- active character variable or nil
+variables.set(name, value)           -- synchronously persist character variable
 status.health / status.fatigue / status.encumbrance / status.satiation
 metrics.track(key, label)            -- declare a metric for current session
 metrics.inc(key) / metrics.dec(key)  -- increment/decrement a metric
@@ -80,13 +83,14 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common 
 - `[Success:]` handler uses `combat.handle_success(text, attack_fn)` which dispatches kills, KOs, knockdowns, and rotation in one place
 - Knockdowns set a pending stand retry; if the first `stand` is rejected while stunned, the high-priority stun-recovery reaction retries it for up to 30 seconds
 - Attack rotation only happens on player attack rolls (50+ patterns in `strings.attack_roll`), not stun/drag/ev successes
+- Complete armor absorptions are accumulated by armor description in the persistent `armor_absorb` state map; multi-strike lines count every absorption
 - Anti-idle recovery: if 5+ seconds since last command, next `[Success:]` triggers an attack
 - Combat macros run indefinitely and have no completion point, so they do not chain (except `lizard_macro`, whose action loop is target-driven but which ends when fatigue runs out, chaining to `idle` by default)
 
 ## Shared Libraries
 
 - **lib_strings.lua** — Pattern string tables shared across modes (unbusy, must_stand, etc.)
-- **lib_combat.lua** — Shared combat functions: attack rotation, kill/KO handling, approach
+- **lib_combat.lua** — Shared combat functions: attack rotation, kill/KO handling, approach, absorption tracking
 - **lib_chain_macro.lua** — Chain macro–specific patterns (chainblade windup)
 - **lib_falx_macro.lua** — Falx macro–specific patterns (stun roll, stun, drag, eviscerate)
 - **lib_lizard_macro.lua** — Lizard macro–specific patterns (aralex dead)

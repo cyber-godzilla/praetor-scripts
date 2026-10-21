@@ -204,7 +204,7 @@ C.attack_roll = {
     -- Falcata and Falx
     'You weave behind', 'You dig your blade into', 'You lunge at',
     'You duck under', 'You dive forward and roll over your shoulder',
-    'You drop your weight, slamming',
+    'You drop your weight, slamming', 'You crouch low, swinging your',
 
     -- Dual Daggers
     'You dart forward, driving a rapid jab',
@@ -236,7 +236,7 @@ C.attack_roll = {
     'You drive the poll of your', 'You pivot smoothly on your heels',
     'Shifting your footing quickly and dropping your guard, you snap your',
     'Stepping inside * guard, you deliver a rapid, alternating sequence',
-    'You sweep your', 'You bring both your',
+    'You sweep your', 'You bring both your', 'You raise both your',
     'You step forward to strike',
 }
 
@@ -364,6 +364,25 @@ function C.on_no_targets(text)
     return true
 end
 
+-- Record every piece of the player's armor that completely absorbs a hit.
+-- A single multi-strike result can name the same or different pieces more than
+-- once, so scan the whole line instead of using one greedy match.
+function C.track_absorb(text)
+    if not text then return 0 end
+
+    local absorb
+    local tracked = 0
+    for armor in text:gmatch('Your ([^%.!?]-) absorbs? the impact of the blow') do
+        if armor ~= '' then
+            absorb = absorb or state.get('armor_absorb') or {}
+            absorb[armor] = (absorb[armor] or 0) + 1
+            tracked = tracked + 1
+        end
+    end
+    if absorb then state.set('armor_absorb', absorb) end
+    return tracked
+end
+
 -- Check if text contains any pattern from a list. Asterisks use the same
 -- ordered wildcard semantics as reaction patterns; everything else is a
 -- literal substring.
@@ -389,6 +408,42 @@ function C.text_matches(text, patterns)
     return false
 end
 
+-- Success lines mix player and enemy rolls. Attack descriptions usually begin
+-- in the player's voice ("You ...") or switch to it after an introductory
+-- clause (", you ..."). Requiring that perspective prevents broad weapon
+-- patterns such as spear openings from treating enemy attacks as ours.
+function C.is_player_attack(text)
+    if not text then return false end
+    local outcome = text
+    local success_start = outcome:find(strings.success, 1, true)
+    if success_start then
+        local _, close = outcome:find('] ', success_start, true)
+        if close then outcome = outcome:sub(close + 1) end
+    end
+    local player_voice = outcome:sub(1, 4) == 'You '
+        or outcome:find(', you ', 1, true) ~= nil
+    return player_voice and C.text_matches(outcome, C.attack_roll)
+end
+
+-- Record one confirmed player maneuver and every critical-hit marker it
+-- produced. Some multi-target attacks emit more than one marker in one line.
+-- force allows a confirmed player result whose prose is not yet represented
+-- in attack_roll (for example, a newly observed killing-blow description).
+function C.track_player_action(text, force)
+    if not text or not text:find(strings.success, 1, true) then return false end
+    if not force and not C.is_player_attack(text) then return false end
+
+    metrics.inc('actions')
+    local position = 1
+    while true do
+        local _, last = text:find('Critical Hit!', position, true)
+        if not last then break end
+        metrics.inc('crits')
+        position = last + 1
+    end
+    return true
+end
+
 -- Handle [Success:] in macro modes. The game sends kill, KO, knockdown, and
 -- attack results all as [Success:] lines, so this one handler must dispatch
 -- them. In particular, success reactions run before each mode's must_stand
@@ -401,13 +456,17 @@ end
 -- recovery), false for normal flow.
 function C.handle_success(text, attack_fn, rotate_player_attack)
     if rotate_player_attack == nil then rotate_player_attack = true end
-    local player_attack = C.text_matches(text, C.attack_roll)
-    if player_attack and text and text:find('Critical Hit!', 1, true) then
-        metrics.inc('crits')
-    end
-
+    -- Enemy attacks and player attacks share the success prefix, and a single
+    -- result may contain more than one absorption message.
+    C.track_absorb(text)
     -- Preserve combat state even when a compound line also requires standing.
     local killed = C.text_matches(text, C.kill)
+    local player_attack = C.is_player_attack(text)
+    -- Killing blows are confirmed player actions even when their prose is not
+    -- yet represented in attack_roll. Standalone backup kill messages do not
+    -- have a success prefix and therefore are ignored by the tracker.
+    C.track_player_action(text, player_attack or killed)
+
     local knocked_down = C.requires_stand(text)
     local knocked_out = text and text:find('falls unconscious', 1, true)
     local not_close_enough = C.text_matches(text, C.not_close_enough)

@@ -44,6 +44,7 @@ function M.on_start(args)
     metrics.track('kills', 'Kills')
     metrics.track('crits', 'Crits')
     metrics.track('actions', 'Actions')
+    state.persist('armor_absorb')
 
     log('Lizard macro mode started, direction: ' .. (direction or 'none'))
 
@@ -83,8 +84,7 @@ M.reactions = {
     {
         match = strings.success,
         action = function(text)
-            if combat.handle_success(text) then return end
-            metrics.inc('actions')
+            combat.handle_success(text)
         end,
     },
     -- Must stand
@@ -97,7 +97,6 @@ M.reactions = {
         match = strings.unbusy,
         action = function()
             if combat.retry_posture() then return end
-            metrics.inc('actions')
             if state.get('moving') then
                 state.set('moving', false)
                 return
@@ -192,6 +191,11 @@ M.reactions = {
     {
         match = combat.not_close_enough,
         action = function() combat.on_not_close_enough() end,
+    },
+    -- Fallback for absorption messages that do not carry a success prefix.
+    {
+        match = strings.armor_absorb,
+        action = function(text) combat.track_absorb(text) end,
     },
 }
 
