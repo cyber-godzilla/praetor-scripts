@@ -91,7 +91,7 @@ M.reactions = {
     -- Falls unconscious (backup: also caught by [Success:] handler)
     {
         match = 'falls unconscious',
-        action = function() combat.on_ko() end,
+        action = function(text) combat.on_ko(text) end,
     },
     -- Rewield
     {
@@ -101,13 +101,10 @@ M.reactions = {
             send('r')
         end,
     },
-    -- Can't find opening: advance target
+    -- Can't find opening: retry the current target
     {
         match = "You can't find an opening",
-        action = function()
-            state.set("target_count", (state.get("target_count") or 1) + 1)
-            combat.attack()
-        end,
+        action = function() combat.attack() end,
     },
     -- Arrival: approach
     {
@@ -117,7 +114,7 @@ M.reactions = {
     -- Kill strings (backup: also caught by [Success:] handler)
     {
         match = combat.kill,
-        action = function() combat.on_kill() end,
+        action = function(text) combat.on_kill(text) end,
     },
     -- Approached strings
     {
@@ -133,6 +130,11 @@ M.reactions = {
     {
         match = 'You are already engaging',
         action = function() combat.on_approached() end,
+    },
+    -- Macro-target reports drive interpose retargeting and restoration.
+    {
+        match = combat.target_report,
+        action = function(text) combat.on_target_report(text) end,
     },
     -- No targets left
     {

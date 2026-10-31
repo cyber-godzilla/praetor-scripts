@@ -34,8 +34,10 @@ the combat result. View or export it from Praetor's Persistent Data screen.
 - `board` -- Rotates locksmithing skills on the board, optionally accepts and completes jobs. Pass `no_jobs` to just train.
 - `lock_job` -- Accepts a locksmithing job from an NPC. `/mode lock_job citizen|trader|sailor`
 - `wire_to_picks` -- Forges broken wires from lockpick fashioning into functional lockpicks.
-- `locksmith` -- Unjams and unlocks containers in bulk, with configurable source, disposition, open/empty behavior, and difficulty skipping. `/mode locksmith cont:chest from:wagon to:n open:true`
-- `unlock_all` -- Unlocks, opens, and drops containers from a source while moving irrecoverably difficult or repeatedly worsened jams to a reject container. A single-word source needs no quotes (`/mode unlock_all sack`); quote grouped sources (`/mode unlock_all "2 sack"`). Named options remain available: `/mode unlock_all from:"2 sack" reject:"worn large sack" targets:chest|coffer|trunk`
+- `unlock_all` -- Work on containers in hand, then sort them into successful and rejected destinations. Use `here` to get from or drop on the floor. `/mode unlock_all targets:chest|coffer from:wagon done:"finished sack" reject:"reject sack" open:true stow:neckpouch`
+- `unlock_toss` -- Work on containers in hand, then toss successful and rejected ones in different directions. `/mode unlock_toss targets:chest|coffer from:here done:n reject:s open:false`
+- `unlock_floor_pass` -- Leave containers on the floor, unjam all of them, then unlock all of them. `/mode unlock_floor_pass targets:chest|coffer|trunk`
+- `unlock_floor_each` -- Leave containers on the floor, unjamming and unlocking each one before continuing. `/mode unlock_floor_each targets:chest|coffer|trunk`
 
 **Herbalism:**
 - `herbmap` -- Surveys rooms for herb spawn rates, persisting per-room data, optionally gathering. `/mode herbmap boulder dir:n gather:rare`
@@ -45,7 +47,7 @@ the combat result. View or export it from Praetor's Persistent Data screen.
 - `learn_languages` -- Repeats language lesson phrases from man/woman teachers.
 
 **Utility:**
-- `loot` -- Loops through corpses taking pipe-delimited items, with optional rotating stowage. Pass `drop:<item|list>` to discard matching items, `from:<noun>` to loot another source, or `stow:<container> stow_start:<n>` to rotate containers as they fill. `/mode loot hand stow:pack stow_start:3 drop:rawhide|hide`
+- `loot` -- Loops through corpses taking pipe-delimited items, with drop, special-destination, and rotating ordinary stowage rules. Drop and special commands use their matching configured substring as the item noun. A bare `special_dest:sack` rotates through numbered sacks; a destination such as `special_dest:"1 sack"` stays fixed. The mode finishes by checking `inhand` and routing any loot still held. `/mode loot . stow:sack stow_start:2 special:pouch|armband special_dest:"1 sack" drop:sack|junk|garbage`
 - `wagon` -- Sells wagon contents to a vendor. Supports aliases in `lib_wagon.lua`.
 - `empty_containers` -- Empties all containers of a type between containers. `/mode empty_containers sack wagon wagon`
 - `drag_paces` -- Drags an item along a path one room at a time, for loads that cannot be pulled like a wagon. `/mode drag_paces sled n:3 e:8 s`
@@ -163,8 +165,8 @@ reads these optional fields off the mode table when it loads a script:
 ```lua
 local M = {}
 
-M.usage = '<item|alias> [start:<corpse#>] [from:<noun>] [stow:<container>] [stow_start:<n>] [drop:<item|list>]'
-M.desc = 'Take a pipe-delimited item list from every corpse, rotating stowage containers'
+M.usage = '<item|alias> [start:<corpse#>] [from:<noun>] [stow:<container>] [stow_start:<n>] [drop:<item|list>] [special:<item|list> special_dest:<destination>]'
+M.desc = 'Take and route loot from every corpse, rotating containers as they fill'
 M.chains = true
 M.hidden = false   -- true keeps it out of the hint; it still runs
 ```

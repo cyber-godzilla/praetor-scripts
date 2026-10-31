@@ -114,7 +114,7 @@ M.reactions = {
     -- Falls unconscious
     {
         match = 'falls unconscious',
-        action = function() combat.on_ko() end,
+        action = function(text) combat.on_ko(text) end,
     },
     -- Rewield
     {
@@ -127,10 +127,7 @@ M.reactions = {
     -- Can't find opening
     {
         match = "You can't find an opening",
-        action = function()
-            state.set("target_count", (state.get("target_count") or 1) + 1)
-            combat.attack()
-        end,
+        action = function() combat.attack() end,
     },
     -- Arrival
     {
@@ -140,7 +137,7 @@ M.reactions = {
     -- Kill strings
     {
         match = combat.kill,
-        action = function() combat.on_kill() end,
+        action = function(text) combat.on_kill(text) end,
     },
     -- Approached
     {
@@ -156,6 +153,11 @@ M.reactions = {
     {
         match = 'You are already engaging',
         action = function() combat.on_approached() end,
+    },
+    -- Macro-target reports drive interpose retargeting and restoration.
+    {
+        match = combat.target_report,
+        action = function(text) combat.on_target_report(text) end,
     },
     -- Lizard dead: move to next area
     {

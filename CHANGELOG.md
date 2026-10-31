@@ -14,8 +14,30 @@ new arguments, patch for fixes.
 - All combat macros now persist complete armor-absorption counts by armor
   description, including every absorption in multi-strike results.
 
+### Changed
+
+- Bulk locksmithing is now four focused modes backed by one shared state
+  machine: `unlock_all`, `unlock_toss`, `unlock_floor_pass`, and
+  `unlock_floor_each`. Their mode-specific named arguments replace the former
+  `locksmith` selector and its pre-filled container choices.
+
 ### Fixed
 
+- Combat kill metrics now recognize every death-evidence form validated in the
+  available game logs, merge the drop/disappearance/result lines emitted for a
+  single death, and still count multiple identically-described or multi-target
+  deaths separately. Log-confirmed nonterminal critical-hit prose is ignored.
+- Combat modes now recover from NPC interposes by temporarily targeting the
+  blocker with a distinguishing single-word selector (or an unindexed
+  descriptive word rather than a generic role when descriptions are identical),
+  then restoring the user's original macro target verbatim after one kill so
+  normal targeting resolves the next opponent.
+  Recovery also clears stale knockout and weapon-specific sequence state,
+  debounces advance retries, and waits for confirmed approaches.
+- No-target detection now limits `You can't ...` handling to attacks against a
+  corpse and observed combat maneuvers against invalid object targets. This
+  stops watchdog loops against dropped weapons and equipment without letting
+  unrelated command failures suppress combat recovery.
 - Macro metrics now count one action per confirmed player combat maneuver,
   count every critical-hit marker in multi-target results, and ignore enemy
   success rolls and unbusy events. Falx stun/drag results and another dual-axes

@@ -97,6 +97,7 @@ All combat macros (macro, chain_macro, falx_macro, lizard_macro) share a common 
 - **lib_courses.lua** — Obstacle course patterns
 - **lib_learn_languages.lua** — Language lesson patterns (man/woman teacher)
 - **lib_locksmithing.lua** — Locksmithing patterns (customer arrivals, greetings)
+- **lib_locksmith_batch.lua** — Shared carry, toss, and floor-batch locksmithing state machine
 - **lib_herbmap.lua** — Herbalism mapping: room key logic, data access, pattern tables, thresholds
 - **lib_loot.lua** — Loot shorthand aliases for corpse types
 - **lib_drag_paces.lua** — Drag-path patterns: arrival line and blocked-path failures

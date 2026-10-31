@@ -3,27 +3,48 @@ local strings = require('lib_strings')
 local C = {}
 
 local WATCHDOG_OVERLAP_MS = 1000
+local ADVANCE_RETRY_MS = 3000
 local MUST_STAND_RETRY_MS = 30000
+local DEATH_EVIDENCE_TTL_MS = 3000
+local active_attack_fn
+local clear_interpose_recovery
 
--- Could use input from other weapon users for weapon-specific kill strings
+-- Death evidence observed in combat logs. Some enemies emit an item drop and a
+-- disappearance line before the attack result, so every evidence form must
+-- reach on_kill() and be deduplicated there rather than incrementing directly.
+-- Keep these patterns narrow: ordinary critical-hit prose often sounds fatal.
 C.kill = {
-    'You slit ', 'and expires.', 'Your blade cuts cleanly through',
-    'in the head repeatedly', 'A *armband* falls from *',
+    'You slit ', 'and expires.',
+    'Your blade cuts cleanly through * body slowly slides apart as * dies.',
+    'in the head repeatedly', '^A *armband* falls from *.$',
     'With massive force, you bring down your',
     'You thrust your * through * heart.',
+    'drops dead after', "'s skull is parted by",
+    'falls in a heap, dead.', 'puncturing * heart!',
+    'crushes through muscle, arteries and bone, until the head of * before suddenly crashing to the ground at your feet.',
+    'Savage blow to * head!',
+    '^As * falls, a brilliant flash of light fills the area,*',
+    '^The corpse of * falls back among the piles of the dead with a flash,*',
 }
 
 -- Strings you would see when there's nobody left to attack
 C.no_targets = {
-    "^You can't *", '^It has left the area.', "^You don't see any",
+    "^You can't * the corpse of *", '^It has left the area.', "^You don't see any",
     '^You are not currently engaging anyone',
+
+    -- Broad macro-target expressions can resolve to equipment or dropped
+    -- weapons after the last NPC leaves.  The watchdog otherwise retries the
+    -- maneuver every few seconds until another NPC arrives.  Keep these
+    -- patterns limited to observed combat commands so unrelated "You can't"
+    -- responses do not pause combat.
+    "^You can't offchop *", "^You can't offpivot *",
+    "^You can't rotchop *", "^You can't sweepcleave *",
+    "^You can't onslaught *", "^You can't offcrush *",
+    "^You can't pollsmash *", "^You can't advance *",
 }
 
--- Some non-combat commands share the broad "You can't ..." prefix used by
--- failed attacks against corpses and missing targets. These responses must not
--- pause combat or disable the watchdog.
-C.no_target_exclusions = {
-    "You can't tell what time of day it is from here.",
+C.target_report = {
+    '^Your macro target is *.$', '^Your new macro target is *.$',
 }
 
 -- Strings that indicate you've been approached or have successfully approached.
@@ -113,14 +134,18 @@ function C.on_stood_up()
 end
 
 function C.on_not_close_enough()
+    local pending = state.get('advance_pending_at')
+    if pending and time.since(pending) < ADVANCE_RETRY_MS then return false end
+    state.set('advance_pending_at', time.now())
     send('adv1', 0)
     state.set('last_command_time', time.now())
+    return true
 end
 
 -- Strings that indicate you have to wield your weapon
 C.rewield = {
     'You fumble, losing your grip', 'You must be wielding your weapon in two hands',
-    "You can't do that right now", 'You must be wielding a weapon to attack',
+    "You can't do that right now", 'You must be wielding a weapon',
     'You must be actively wielding a weapon in each hand to execute this maneuver.',
 }
 
@@ -252,6 +277,7 @@ end
 function C.can_attack()
     if state.get('posture_restore_pending') then return false end
     if state.get('combat_no_targets') then return false end
+    if state.get('interpose_waiting_for') then return false end
     local kicked = state.get('watchdog_kicked_at')
     if not state.get('watchdog_firing') and kicked and time.since(kicked) < WATCHDOG_OVERLAP_MS then
         return false
@@ -277,6 +303,7 @@ end
 -- (e.g. 'You are already engaging' followed by silence).
 function C.start_watchdog(attack_fn, stall_ms, check_ms)
     attack_fn = attack_fn or C.attack
+    active_attack_fn = attack_fn
     stall_ms = stall_ms or 8000
     check_ms = check_ms or 3000
     state.set('last_command_time', time.now())
@@ -285,6 +312,15 @@ function C.start_watchdog(attack_fn, stall_ms, check_ms)
     state.set('posture_restore_pending', false)
     state.set('watchdog_kicked_at', nil)
     state.set('watchdog_firing', false)
+    state.set('advance_pending_at', nil)
+    state.set('approach_pending', false)
+    state.set('interpose_target', nil)
+    state.set('interpose_original_target', nil)
+    state.set('interpose_waiting_for', nil)
+    state.set('interpose_resume_after_query', false)
+    state.set('interpose_last_protected', nil)
+    state.set('interpose_last_blocker', nil)
+    state.set('recent_death_evidence', nil)
     local id = set_interval(function()
         local last = state.get('last_command_time') or 0
         if not state.get('combat_no_targets') and time.since(last) > stall_ms then
@@ -302,6 +338,10 @@ function C.start_watchdog(attack_fn, stall_ms, check_ms)
 end
 
 function C.stop_watchdog()
+    local original_target = state.get('interpose_original_target')
+    if original_target and C.in_interpose_recovery() then
+        send('@mtarg ' .. original_target, 0)
+    end
     local id = state.get('watchdog_id')
     if id then
         clear_timer(id)
@@ -310,16 +350,372 @@ function C.stop_watchdog()
     state.set('must_stand_pending_at', nil)
     state.set('posture_restore_pending', false)
     state.set('watchdog_firing', false)
+    state.set('recent_death_evidence', nil)
+    clear_interpose_recovery()
+    active_attack_fn = nil
 end
 
-function C.on_kill()
-    metrics.inc('kills')
+local function mark_command()
+    state.set('last_command_time', time.now())
+end
+
+local function clean_target_name(name)
+    if not name then return nil end
+    name = name:gsub('^%s+', ''):gsub('%s+$', '')
+    name = name:gsub('^[Aa][Nn]? ', ''):gsub('^[Tt]he ', '')
+    if name == '' then return nil end
+    return name
+end
+
+local target_joiners = {
+    a = true, an = true, the = true, with = true, of = true, by = true,
+    ['in'] = true, on = true, from = true, covered = true, wearing = true,
+    wielding = true, carrying = true,
+}
+
+local target_roles = {
+    archer = true, bandit = true, guard = true, rogue = true, ruffian = true,
+}
+
+local function target_words(name)
+    local words = {}
+    for raw_word in (name or ''):gmatch('%S+') do
+        local word = raw_word:gsub('^[%p]+', ''):gsub('[%p]+$', '')
+        if word ~= '' then
+            table.insert(words, {value = word, key = word:lower()})
+        end
+    end
+    return words
+end
+
+-- Character combat macros append mtarg directly to commands whose target
+-- grammar accepts one identifying word. Pick the first meaningful blocker word
+-- that does not also describe the protected NPC.
+-- This keeps "mud-covered bandit" short while avoiding the observed failure
+-- where both "bandit with hairy arms" and "bandit with a leathery face" were
+-- reduced to the useless selector "bandit".
+local function target_selector(blocker, protected)
+    local protected_words = {}
+    for _, word in ipairs(target_words(protected)) do
+        protected_words[word.key] = true
+    end
+
+    local meaningful = {}
+    for _, word in ipairs(target_words(blocker)) do
+        if not target_joiners[word.key] then
+            table.insert(meaningful, word.value)
+            if not protected_words[word.key] then return word.value end
+        end
+    end
+
+    -- Identical descriptions cannot be distinguished lexically. Do not put an
+    -- ordinal in mtarg: the combat macros already supply their own leading
+    -- action selector, and an indexed mtarg makes the game parse that selector
+    -- as the target. Prefer a descriptive word over the shared NPC role; after
+    -- an interpose, proximity resolves that description to the adjacent blocker.
+    for _, word in ipairs(meaningful) do
+        if not target_roles[word:lower()] then return word end
+    end
+    if meaningful[1] then return meaningful[1] end
+    return nil
+end
+
+local function parse_interpose(text)
+    if not text then return nil, nil end
+    local outcome = text
+    local success_start = outcome:find(strings.success, 1, true)
+    if success_start then
+        local _, close = outcome:find('] ', success_start, true)
+        if close then outcome = outcome:sub(close + 1) end
+    end
+    local protected, blocker = outcome:match(
+        '^You move toward (.-), but are interposed by (.-)%.$'
+    )
+    return clean_target_name(protected), clean_target_name(blocker)
+end
+
+function C.is_interpose(text)
+    local protected, blocker = parse_interpose(text)
+    return protected ~= nil and blocker ~= nil
+end
+
+function C.in_interpose_recovery()
+    return state.get('interpose_target') ~= nil
+        or state.get('interpose_waiting_for') ~= nil
+end
+
+local function retarget(target, waiting_for)
+    if not target then return false end
+    state.set('interpose_waiting_for', waiting_for)
+    send('@mtarg ' .. target, 0)
+    mark_command()
+    return true
+end
+
+clear_interpose_recovery = function()
+    state.set('interpose_target', nil)
+    state.set('interpose_original_target', nil)
+    state.set('interpose_waiting_for', nil)
+    state.set('interpose_resume_after_query', false)
+    state.set('interpose_last_protected', nil)
+    state.set('interpose_last_blocker', nil)
+end
+
+local function restore_original_target()
+    if state.get('interpose_waiting_for') == 'query'
+        and not state.get('interpose_original_target') then
+        state.set('interpose_resume_after_query', true)
+        return true
+    end
+    state.set('target_ko', false)
+    state.set('advance_pending_at', nil)
+    state.set('approached', false)
+
+    local original = state.get('interpose_original_target')
+    if original then
+        -- The original setting may be a pipe expression or an indexed target;
+        -- restore it byte-for-byte instead of treating it as an NPC name.
+        return retarget(original, 'restore')
+    end
+
+    clear_interpose_recovery()
+    state.set('combat_no_targets', true)
+    return false
+end
+
+-- An interpose leaves the player next to the blocker while every configured
+-- combat macro still points at the protected target. Save the user's macro
+-- target and focus the blocker. After one recovery kill, restore the original
+-- target and let app1 resolve the next opponent from that expression again.
+function C.on_interpose(text)
+    local protected, blocker = parse_interpose(text)
+    if not protected or not blocker then return false end
+
+    if state.get('interpose_target') == blocker
+        and state.get('interpose_last_protected') == protected
+        and state.get('interpose_last_blocker') == blocker then
+        if not state.get('interpose_waiting_for') then
+            retarget(target_selector(blocker, protected), 'switch')
+        end
+        return true
+    end
+
+    state.set('interpose_target', blocker)
+    state.set('interpose_last_protected', protected)
+    state.set('interpose_last_blocker', blocker)
+    state.set('target_ko', false)
+    state.set('combat_no_targets', false)
+    state.set('advance_pending_at', nil)
+    state.set('approach_pending', false)
+    state.set('approached', true)
+
+    if not state.get('interpose_original_target') then
+        state.set('interpose_waiting_for', 'query')
+        send('@mtarg', 0)
+        mark_command()
+        return true
+    end
+    retarget(target_selector(blocker, protected), 'switch')
+    return true
+end
+
+local function parse_target_report(text)
+    if not text then return nil end
+    return text:match('^Your new macro target is (.*)%.$')
+        or text:match('^Your macro target is (.*)%.$')
+end
+
+function C.on_target_report(text)
+    local waiting = state.get('interpose_waiting_for')
+    if not waiting then return false end
+    local target = parse_target_report(text)
+    if not target or target == '' then return false end
+
+    if waiting == 'query' then
+        state.set('interpose_original_target', target)
+        if state.get('interpose_resume_after_query') then
+            state.set('interpose_resume_after_query', false)
+            return restore_original_target()
+        end
+        return retarget(
+            target_selector(
+                state.get('interpose_target'),
+                state.get('interpose_last_protected')
+            ),
+            'switch'
+        )
+    end
+
+    if waiting == 'switch' then
+        state.set('interpose_waiting_for', nil)
+        state.set('approached', true)
+        -- A watchdog tick may have overlapped the target query. Its kick did
+        -- not send while recovery was pending, so it must not debounce the
+        -- first real attack against the blocker.
+        state.set('watchdog_kicked_at', nil)
+        local attack = active_attack_fn or C.attack
+        attack()
+        return true
+    end
+
+    if waiting == 'restore' then
+        state.set('interpose_waiting_for', nil)
+        clear_interpose_recovery()
+        C.approach()
+        return true
+    end
+    return false
+end
+
+local function normalize_death_target(target)
+    if not target then return nil end
+    target = target:lower():gsub('^%s+', ''):gsub('%s+$', '')
+    target = target:gsub('^the corpse of ', '')
+    target = target:gsub('^the ', ''):gsub('^an? ', '')
+    target = target:gsub('[%s%.!]+$', '')
+    if target == '' then return nil end
+    return target
+end
+
+local function add_death_signal(signals, target, source)
+    table.insert(signals, {
+        target = normalize_death_target(target),
+        source = source,
+    })
+end
+
+-- Return each independently countable death signal on a line. The fatal-result
+-- patterns below are deliberately based on confirmed log sequences; phrases
+-- such as "deadly slash", "fatal jab", and "collapses in shock" also occur in
+-- non-fatal critical hits and must not be accepted on their own.
+local function death_signals(text)
+    local signals = {}
+    if not text then return signals end
+
+    local target = text:match('^A .-armband.- falls from (.-)%.$')
+    if target then add_death_signal(signals, target, 'drop') end
+
+    target = text:match('^As (.-) falls, a brilliant flash of light fills the area,')
+    if target then add_death_signal(signals, target, 'disappear') end
+
+    target = text:match('^The corpse of (.-) falls back among the piles of the dead with a flash,')
+    if target then add_death_signal(signals, target, 'disappear') end
+
+    for name in text:gmatch(
+        'Your blade cuts cleanly through (.-), nearly cleaving.-body slowly slides apart as.-dies%.'
+    ) do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch('Critical Hit!%s+([Aa]n? .-) drops dead after') do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch("Critical Hit!%s+([Aa]n? .-)'s skull is parted by") do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch(
+        "across the top of (.-)'s head relieves.-before.-falls in a heap, dead%."
+    ) do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch("crush (.-)'s sternum.-puncturing [^%s]+ heart!") do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch(
+        'until the head of (.-) rises a bit before suddenly crashing to the ground at your feet%.'
+    ) do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch("Savage blow to (.-)'s head!") do
+        add_death_signal(signals, name, 'result')
+    end
+    for name in text:gmatch("You thrust your .- through (.-)'s heart%.") do
+        add_death_signal(signals, name, 'result')
+    end
+
+    -- Older weapon-specific finishers were recorded before target extraction
+    -- was added. They are one-death results and do not have the undead drop /
+    -- disappearance echoes found in the parsed log corpus.
+    if #signals == 0 and (
+        text:find('You slit ', 1, true)
+        or text:find('and expires.', 1, true)
+        or text:find('in the head repeatedly', 1, true)
+        or text:find('With massive force, you bring down your', 1, true)
+    ) then
+        add_death_signal(signals, nil, 'result')
+    end
+
+    return signals
+end
+
+function C.is_death(text)
+    return #death_signals(text) > 0
+end
+
+-- A single death can produce drop -> disappearance -> result (the result may
+-- arrive last). Match evidence by normalized target and source for a short
+-- window. Separate deaths of identically-described enemies still count: a
+-- second signal from the same source opens a second evidence record.
+function C.track_deaths(text, parsed_signals)
+    local signals = parsed_signals or death_signals(text)
+    if #signals == 0 then return 0 end
+
+    local recent = state.get('recent_death_evidence') or {}
+    local active = {}
+    for _, event in ipairs(recent) do
+        if event.at and time.since(event.at) <= DEATH_EVIDENCE_TTL_MS then
+            table.insert(active, event)
+        end
+    end
+
+    local added = 0
+    for _, signal in ipairs(signals) do
+        local duplicate
+        if signal.target then
+            for _, event in ipairs(active) do
+                if event.target == signal.target and not event.sources[signal.source] then
+                    duplicate = event
+                    break
+                end
+            end
+        end
+
+        if duplicate then
+            duplicate.sources[signal.source] = true
+            duplicate.at = time.now()
+        else
+            local sources = {}
+            sources[signal.source] = true
+            table.insert(active, {
+                target = signal.target,
+                sources = sources,
+                at = time.now(),
+            })
+            metrics.inc('kills')
+            added = added + 1
+        end
+    end
+    state.set('recent_death_evidence', active)
+    return added
+end
+
+function C.on_kill(text, parsed_signals)
+    C.track_deaths(text, parsed_signals)
     state.set('target_ko', false)
     state.set('approached', false)
+    if C.in_interpose_recovery() then restore_original_target() end
 end
 
-function C.on_ko()
-    if state.get('do_kill') then state.set('target_ko', true) end
+function C.on_ko(text)
+    local recovery_target = state.get('interpose_target')
+    if recovery_target and text and not text:find(recovery_target, 1, true) then
+        return false
+    end
+    if state.get('do_kill') then
+        state.set('target_ko', true)
+    elseif C.in_interpose_recovery() then
+        restore_original_target()
+    end
+    return true
 end
 
 function C.try_kill()
@@ -332,16 +728,27 @@ end
 
 function C.approach()
     state.set('combat_no_targets', false)
-    state.set('approached', true)
+    state.set('approached', false)
+    state.set('approach_pending', true)
+    state.set('advance_pending_at', nil)
     send('app1')
-    state.set('last_command_time', time.now())
+    mark_command()
 end
 
 function C.on_approached(attack_fn)
     state.set('combat_no_targets', false)
     state.set('approached', true)
+    state.set('approach_pending', false)
+    state.set('advance_pending_at', nil)
     local attack = attack_fn or C.attack
     attack()
+end
+
+local function confirm_approached()
+    state.set('combat_no_targets', false)
+    state.set('approached', true)
+    state.set('approach_pending', false)
+    state.set('advance_pending_at', nil)
 end
 
 function C.on_enemy_approached(attack_fn)
@@ -353,10 +760,14 @@ function C.on_enemy_approached(attack_fn)
 end
 
 function C.on_no_targets(text)
-    if text then
-        for _, excluded in ipairs(C.no_target_exclusions) do
-            if text == excluded then return false end
+    if C.in_interpose_recovery() then
+        -- A response from the command that triggered recovery can arrive after
+        -- the macro-target query/switch was queued. It says nothing about the
+        -- new target and must not poison the recovery state.
+        if not state.get('interpose_waiting_for') then
+            restore_original_target()
         end
+        return true
     end
     state.set('combat_no_targets', true)
     state.set('target_ko', false)
@@ -459,8 +870,10 @@ function C.handle_success(text, attack_fn, rotate_player_attack)
     -- Enemy attacks and player attacks share the success prefix, and a single
     -- result may contain more than one absorption message.
     C.track_absorb(text)
+    if C.on_interpose(text) then return true end
     -- Preserve combat state even when a compound line also requires standing.
-    local killed = C.text_matches(text, C.kill)
+    local parsed_deaths = death_signals(text)
+    local killed = #parsed_deaths > 0
     local player_attack = C.is_player_attack(text)
     -- Killing blows are confirmed player actions even when their prose is not
     -- yet represented in attack_roll. Standalone backup kill messages do not
@@ -470,11 +883,12 @@ function C.handle_success(text, attack_fn, rotate_player_attack)
     local knocked_down = C.requires_stand(text)
     local knocked_out = text and text:find('falls unconscious', 1, true)
     local not_close_enough = C.text_matches(text, C.not_close_enough)
+    local approached = C.text_matches(text, C.approached)
     if killed then
-        C.on_kill()
+        C.on_kill(text, parsed_deaths)
     end
     if knocked_out then
-        C.on_ko()
+        C.on_ko(text)
     end
     if knocked_down then
         C.on_must_stand(text)
@@ -482,6 +896,10 @@ function C.handle_success(text, attack_fn, rotate_player_attack)
     end
     if not_close_enough then
         C.on_not_close_enough()
+        return true
+    end
+    if approached then
+        confirm_approached()
         return true
     end
     if killed or knocked_out then

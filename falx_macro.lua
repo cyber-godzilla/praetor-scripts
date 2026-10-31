@@ -195,7 +195,7 @@ M.reactions = {
                 exit_submode()
             end
             if text and text:find('falls unconscious', 1, true) then
-                combat.on_ko()
+                combat.on_ko(text)
             else
                 -- Always resume attacking after ev exit, even if submode
                 -- was already cleared (e.g., duplicate ev responses).
@@ -269,10 +269,7 @@ M.reactions = {
     -- Can't find opening
     {
         match = "You can't find an opening",
-        action = function()
-            state.set("target_count", (state.get("target_count") or 1) + 1)
-            falx_attack()
-        end,
+        action = function() falx_attack() end,
     },
     -- Arrival
     {
@@ -282,7 +279,7 @@ M.reactions = {
     -- Kill strings (backup: also caught by [Success:] handler)
     {
         match = combat.kill,
-        action = function() combat.on_kill() end,
+        action = function(text) combat.on_kill(text) end,
     },
     -- Approached
     {
@@ -298,6 +295,11 @@ M.reactions = {
     {
         match = 'You are already engaging',
         action = function() combat.on_approached(falx_attack) end,
+    },
+    -- Macro-target reports drive interpose retargeting and restoration.
+    {
+        match = combat.target_report,
+        action = function(text) combat.on_target_report(text) end,
     },
     -- No targets
     {

@@ -78,7 +78,11 @@ M.reactions = {
     {
         match = strings.success,
         action = function(text)
-            if combat.handle_success(text, chain_attack) then return end
+            local interposed = combat.is_interpose(text)
+            if combat.handle_success(text, chain_attack) then
+                if interposed then state.set('winding_up', false) end
+                return
+            end
             if state.get('winding_up') then
                 state.set('winding_up', false)
                 chain_attack()
@@ -116,7 +120,7 @@ M.reactions = {
     -- Falls unconscious (backup)
     {
         match = 'falls unconscious',
-        action = function() combat.on_ko() end,
+        action = function(text) combat.on_ko(text) end,
     },
     -- Rewield
     {
@@ -129,10 +133,7 @@ M.reactions = {
     -- Can't find opening
     {
         match = "You can't find an opening",
-        action = function()
-            state.set("target_count", (state.get("target_count") or 1) + 1)
-            chain_attack()
-        end,
+        action = function() chain_attack() end,
     },
     -- Arrival
     {
@@ -142,7 +143,7 @@ M.reactions = {
     -- Kill strings (backup)
     {
         match = combat.kill,
-        action = function() combat.on_kill() end,
+        action = function(text) combat.on_kill(text) end,
     },
     -- Approached
     {
@@ -158,6 +159,11 @@ M.reactions = {
     {
         match = 'You are already engaging',
         action = function() combat.on_approached(chain_attack) end,
+    },
+    -- Macro-target reports drive interpose retargeting and restoration.
+    {
+        match = combat.target_report,
+        action = function(text) combat.on_target_report(text) end,
     },
     -- No targets
     {
